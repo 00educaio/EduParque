@@ -1,0 +1,18 @@
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { getEnv } from "@/shared/infrastructure/config/env";
+import * as schema from "./schema";
+
+const globalForDatabase = globalThis as unknown as { sql?: ReturnType<typeof postgres> };
+
+const sql =
+  globalForDatabase.sql ??
+  postgres(getEnv().DATABASE_URL, {
+    max: process.env.NODE_ENV === "development" ? 5 : 10,
+    prepare: false,
+  });
+
+if (process.env.NODE_ENV !== "production") globalForDatabase.sql = sql;
+
+export const db = drizzle(sql, { schema });
+export { sql };

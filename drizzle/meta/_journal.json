@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791217076588,
+      "tag": "0000_broken_dust",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791228131651,
+      "tag": "0001_fixed_star_brand",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791294795419,
+      "tag": "0002_flippant_psylocke",
+      "breakpoints": true
+    }
+  ]
+}
