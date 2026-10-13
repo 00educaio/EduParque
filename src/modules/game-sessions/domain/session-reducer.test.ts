@@ -96,6 +96,24 @@ describe("sessionReducer", () => {
     expect(solo.activeTeamIndex).toBe(0);
   });
 
+  it("alterna equipes circularmente sem concluir a pergunta ou alterar pontos", () => {
+    let state = reduceSession(initial({ teams: [{ name: "A", color: "#008844" }, { name: "B", color: "#0044aa" }, { name: "C", color: "#aa4400" }] }), { type: "startSession" }, start).state;
+    const scores = state.teams.map((team) => team.score);
+    for (const expectedTeamIndex of [1, 2, 0]) {
+      state = reduceSession(state, { type: "updateTemplateState", state: {}, advanceTurn: true, expectedSequence: state.sequence }, start).state;
+      expect(state).toMatchObject({ activeTeamIndex: expectedTeamIndex, currentItemIndex: 0 });
+      expect(state.teams.map((team) => team.score)).toEqual(scores);
+    }
+  });
+
+  it("rejeita uma segunda passagem baseada na mesma tentativa", () => {
+    const state = reduceSession(initial(), { type: "startSession" }, start).state;
+    const command = { type: "updateTemplateState" as const, state: {}, advanceTurn: true, expectedSequence: state.sequence };
+    const advanced = reduceSession(state, command, start).state;
+    expect(advanced.activeTeamIndex).toBe(1);
+    expect(() => reduceSession(advanced, command, start)).toThrow("A tentativa já foi encerrada por outra ação.");
+  });
+
   it("restaura timer-bomba expirado sem depender de ticks persistidos", () => {
     const state = reduceSession(initial({ timer: { mode: "game", variant: "bomb", durationSeconds: 5, soundEnabled: false } }), { type: "startSession" }, start).state;
     const restored = restoreSessionState(state, new Date(start.getTime() + 5_500));

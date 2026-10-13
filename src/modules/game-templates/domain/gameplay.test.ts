@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityContent } from "@/shared/domain/content-blocks";
-import { availableWheelItems, categorizedItems, deterministicShuffle, groupSortCategories, isQuizAnswerCorrect, isSequenceCorrect, matchingPairs, quizQuestions, sequenceUnits, teamGridCards, unscrambleSequences, wheelItems } from "./gameplay";
+import { availableWheelItems, categorizedItems, deterministicShuffle, groupSortCategories, isQuizAnswerCorrect, isSequenceCorrect, matchingPairs, quizQuestions, sequenceUnitMode, sequenceUnits, teamGridCards, unscrambleSequences, wheelItems } from "./gameplay";
 
 const content: ActivityContent = [
   { type: "prompt-answer", id: "quiz", items: [
@@ -10,7 +10,7 @@ const content: ActivityContent = [
   { type: "pair", id: "pairs", pairs: [{ id: "p1", left: "Brasil", right: "Brasília" }, { id: "p2", left: "França", right: "Paris" }] },
   { type: "item-list", id: "wheel", items: [{ id: "w1", text: "Um" }, { id: "w2", text: "Dois" }] },
   { type: "categorized-item", id: "groups", categories: [
-    { id: "mammals", name: "Mamíferos", items: [{ id: "dog", text: "Cachorro" }] },
+    { id: "mammals", name: "Mamíferos", media: { assetId: "80da19ec-babe-4ff6-858a-6d21d73264c9", kind: "image", filename: "mamiferos.webp" }, items: [{ id: "dog", text: "Cachorro" }] },
     { id: "birds", name: "Aves", items: [{ id: "macaw", text: "Arara" }] },
   ] },
   { type: "sequence", id: "sequences", sequences: [
@@ -58,7 +58,10 @@ describe("gameplay dos templates", () => {
   });
 
   it("extrai itens categorizados com a resposta e categorias sem duplicar a engine", () => {
-    expect(groupSortCategories(content)).toEqual([{ id: "mammals", name: "Mamíferos" }, { id: "birds", name: "Aves" }]);
+    expect(groupSortCategories(content)).toEqual([
+      { id: "mammals", name: "Mamíferos", media: { assetId: "80da19ec-babe-4ff6-858a-6d21d73264c9", kind: "image", filename: "mamiferos.webp" } },
+      { id: "birds", name: "Aves", media: undefined },
+    ]);
     expect(categorizedItems(content, false, "s")).toMatchObject([
       { id: "dog", categoryId: "mammals", categoryName: "Mamíferos" },
       { id: "macaw", categoryId: "birds", categoryName: "Aves" },
@@ -72,6 +75,13 @@ describe("gameplay dos templates", () => {
     expect(sequenceUnits(characters!, "character")).toEqual(["s", "o", "l"]);
     expect(isSequenceCorrect(["s", "o", "l"], ["s", "o", "l"])).toBe(true);
     expect(isSequenceCorrect(["s", "o", "l"], ["s", "l", "o"])).toBe(false);
+  });
+
+  it("prioriza a unidade configurada por sequência e mantém fallbacks legados", () => {
+    expect(sequenceUnitMode({ unitMode: "character" }, "token")).toBe("character");
+    expect(sequenceUnitMode({ unitMode: "token", splitMode: "character" }, "character")).toBe("token");
+    expect(sequenceUnitMode({ splitMode: "character" }, "token")).toBe("character");
+    expect(sequenceUnitMode({}, "character")).toBe("character");
   });
 
   it("modela cards extensíveis, mas gera somente perguntas no Team Grid do MVP", () => {

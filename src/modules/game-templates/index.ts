@@ -44,8 +44,12 @@ const definitions = [
   }),
   defineTemplate({
     key: "unscramble", name: "Desembaralhar", supportedContentTypes: ["sequence"],
-    configSchema: z.object({ base: baseGameConfigSchema, template: z.object({ tokenMode: z.enum(["character", "token", "word"]).default("token").transform((mode) => mode === "word" ? "token" as const : mode) }) }),
-    defaultConfig: { base: baseGameConfigSchema.parse({}), template: { tokenMode: "token" as const } },
+    configSchema: z.object({ base: baseGameConfigSchema, template: z.object({
+      tokenMode: z.enum(["character", "token", "word"]).default("token").transform((mode) => mode === "word" ? "token" as const : mode),
+      verificationMode: z.enum(["progressive", "on-finish"]).default("on-finish"),
+      allowPassTurn: z.boolean().default(false),
+    }) }),
+    defaultConfig: { base: baseGameConfigSchema.parse({}), template: { tokenMode: "token" as const, verificationMode: "on-finish" as const, allowPassTurn: false } },
   }),
   defineTemplate({
     key: "team-grid", name: "Grade de equipes", supportedContentTypes: ["prompt-answer"],

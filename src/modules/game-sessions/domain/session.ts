@@ -77,6 +77,7 @@ export const sessionCommandSchema = z.discriminatedUnion("type", [
     award: z.object({ teamId: z.string().uuid(), suggestedPoints: pointsSchema.optional() }).optional(),
     advance: z.boolean().optional(),
     advanceTurn: z.boolean().optional(),
+    expectedSequence: z.number().int().min(0).optional(),
     finish: z.boolean().optional(),
     restartTimer: z.boolean().optional(),
   }),

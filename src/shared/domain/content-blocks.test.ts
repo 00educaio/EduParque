@@ -52,6 +52,19 @@ describe("ContentBlocks", () => {
     ).toBe(true);
   });
 
+  it("aceita configuração de unidade individual em cada sequência", () => {
+    expect(sequenceBlockSchema.safeParse({
+      type: "sequence",
+      id: "seq",
+      sequences: [
+        { id: "chars", tokens: ["Edu", "Parque"], unitMode: "character" },
+        { id: "segments", tokens: ["Edu", "Parque"], unitMode: "token" },
+      ],
+    }).success).toBe(true);
+    expect(sequenceBlockSchema.safeParse({ type: "sequence", id: "word", sequences: [{ id: "chars", tokens: ["EduParque"], unitMode: "character" }] }).success).toBe(true);
+    expect(sequenceBlockSchema.safeParse({ type: "sequence", id: "word", sequences: [{ id: "segments", tokens: ["EduParque"], unitMode: "token" }] }).success).toBe(false);
+  });
+
   it("permite rascunho incompleto sem afrouxar a validacao de publicacao", () => {
     const draft = [{ type: "prompt-answer", id: "questions", items: [{ id: "q1", prompt: "", answers: [{ id: "a1", text: "", isCorrect: false }] }] }];
     expect(editableActivityContentSchema.safeParse(draft).success).toBe(true);

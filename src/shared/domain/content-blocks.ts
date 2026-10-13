@@ -98,6 +98,7 @@ export const categorizedItemBlockSchema = z.object({
       z.object({
         id: idSchema,
         name: textSchema,
+        media: mediaReferenceSchema.optional(),
         items: z.array(z.object({ id: idSchema, text: textSchema, media: mediaReferenceSchema.optional() })).min(1).max(200),
       }),
     )
@@ -113,9 +114,12 @@ export const sequenceBlockSchema = z.object({
       z.object({
         id: idSchema,
         prompt: z.string().trim().max(10_000).optional(),
-        tokens: z.array(textSchema).min(2).max(100),
+        tokens: z.array(textSchema).min(1).max(100),
         splitMode: z.enum(["word", "character"]).optional(),
+        unitMode: z.enum(["token", "character"]).optional(),
         media: mediaReferenceSchema.optional(),
+      }).superRefine((sequence, context) => {
+        if (sequence.unitMode === "token" && sequence.tokens.length < 2) context.addIssue({ code: "custom", path: ["tokens"], message: "Use ao menos dois segmentos." });
       }),
     )
     .min(1)
@@ -154,11 +158,11 @@ const draftItemListBlockSchema = z.object({
 });
 const draftCategorizedItemBlockSchema = z.object({
   type: z.literal("categorized-item"), id: idSchema,
-  categories: z.array(z.object({ id: idSchema, name: draftTextSchema, items: z.array(z.object({ id: idSchema, text: draftTextSchema, media: mediaReferenceSchema.optional() })).max(200) })).max(20),
+  categories: z.array(z.object({ id: idSchema, name: draftTextSchema, media: mediaReferenceSchema.optional(), items: z.array(z.object({ id: idSchema, text: draftTextSchema, media: mediaReferenceSchema.optional() })).max(200) })).max(20),
 });
 const draftSequenceBlockSchema = z.object({
   type: z.literal("sequence"), id: idSchema,
-  sequences: z.array(z.object({ id: idSchema, prompt: draftTextSchema.optional(), tokens: z.array(draftTextSchema).max(100), splitMode: z.enum(["word", "character"]).optional(), media: mediaReferenceSchema.optional() })).max(200),
+  sequences: z.array(z.object({ id: idSchema, prompt: draftTextSchema.optional(), tokens: z.array(draftTextSchema).max(100), splitMode: z.enum(["word", "character"]).optional(), unitMode: z.enum(["token", "character"]).optional(), media: mediaReferenceSchema.optional() })).max(200),
 });
 
 export const editableContentBlockSchema = z.discriminatedUnion("type", [draftPromptAnswerBlockSchema, draftPairBlockSchema, draftItemListBlockSchema, draftCategorizedItemBlockSchema, draftSequenceBlockSchema]);

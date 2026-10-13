@@ -14,7 +14,28 @@ describe("Template Registry", () => {
     const definition = getGameTemplate("unscramble");
     const defaults = definition.defaultConfig as Record<string, unknown>;
     const parsed = parseGameConfig("unscramble", { ...defaults, template: { tokenMode: "word" } });
-    expect(parsed.template).toEqual({ tokenMode: "token" });
+    expect(parsed.template).toEqual({ tokenMode: "token", verificationMode: "on-finish", allowPassTurn: false });
+  });
+
+  it("mantém o modo de verificação anterior em jogos Unscramble existentes", () => {
+    const definition = getGameTemplate("unscramble");
+    const defaults = definition.defaultConfig as Record<string, unknown>;
+    const parsed = parseGameConfig("unscramble", { ...defaults, template: { tokenMode: "character" } });
+    expect(parsed.template).toEqual({ tokenMode: "character", verificationMode: "on-finish", allowPassTurn: false });
+  });
+
+  it("persiste a verificação progressiva do Unscramble", () => {
+    const definition = getGameTemplate("unscramble");
+    const defaults = definition.defaultConfig as Record<string, unknown>;
+    const parsed = parseGameConfig("unscramble", { ...defaults, template: { tokenMode: "token", verificationMode: "progressive" } });
+    expect(parsed.template).toEqual({ tokenMode: "token", verificationMode: "progressive", allowPassTurn: false });
+  });
+
+  it("persiste a passagem voluntária de turno do Unscramble", () => {
+    const definition = getGameTemplate("unscramble");
+    const defaults = definition.defaultConfig as Record<string, unknown>;
+    const parsed = parseGameConfig("unscramble", { ...defaults, template: { tokenMode: "token", verificationMode: "on-finish", allowPassTurn: true } });
+    expect(parsed.template).toEqual({ tokenMode: "token", verificationMode: "on-finish", allowPassTurn: true });
   });
 });
 

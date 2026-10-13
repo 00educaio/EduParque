@@ -18,5 +18,5 @@ export default async function SessionPage({ params }: PageProps<"/session/[id]">
   try { session = await getGameSession(id, user, controllerToken); }
   catch (error) { if (error instanceof GameSessionNotFoundError || error instanceof ForbiddenError) notFound(); throw error; }
   const theme = resolveTheme(session.snapshot.resolvedTheme, session.presentation.themeOverride);
-  return <GameSessionShell sessionId={session.id} title={session.snapshot.title} initialState={session.state} canControl={session.canControl} content={session.snapshot.content} config={session.presentation.gameConfig} theme={theme} />;
+  return <GameSessionShell sessionId={session.id} title={session.snapshot.title} initialState={session.state} initialTeamImageTeamIds={session.teamImageTeamIds} canControl={session.canControl} content={session.snapshot.content} config={session.presentation.gameConfig} theme={theme} />;
 }

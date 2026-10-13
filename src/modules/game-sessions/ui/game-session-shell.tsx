@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SessionCommand, SessionState } from "@/modules/game-sessions/domain/session";
 import { GameRenderer } from "@/modules/game-templates/ui/game-renderer";
@@ -25,6 +26,7 @@ import type { ActivityContent } from "@/shared/domain/content-blocks";
 import { BrandMark } from "@/shared/ui/components";
 import { SessionTimer } from "./session-timer";
 import { playSessionSound, unlockSessionAudio } from "./session-audio";
+import { TeamAvatar } from "./team-avatar";
 
 function TeamNameEditor({ teamId, name, disabled, rename }: { teamId: string; name: string; disabled: boolean; rename: (teamId: string, name: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState(false);
@@ -63,7 +65,7 @@ function TeamNameEditor({ teamId, name, disabled, rename }: { teamId: string; na
   );
 }
 
-function SessionLobby({ title, state, canControl, pending, start }: { title: string; state: SessionState; canControl: boolean; pending: boolean; start: () => Promise<void> }) {
+function SessionLobby({ sessionId, title, state, teamImageTeamIds, canControl, pending, start }: { sessionId: string; title: string; state: SessionState; teamImageTeamIds: ReadonlySet<string>; canControl: boolean; pending: boolean; start: () => Promise<void> }) {
   return (
     <main className="session-shell session-lobby">
       <div className="session-lobby__shape session-lobby__shape--circle" aria-hidden="true" />
@@ -108,7 +110,7 @@ function SessionLobby({ title, state, canControl, pending, start }: { title: str
             {state.teams.map((team, index) => (
               <li key={team.id} style={{ "--team-color": team.color } as React.CSSProperties}>
                 <span className="session-lobby__team-number">{String(index + 1).padStart(2, "0")}</span>
-                <span className="session-lobby__team-color" aria-hidden="true" />
+                <TeamAvatar className="session-lobby__team-avatar" sessionId={sessionId} teamId={team.id} teamName={team.name} color={team.color} hasImage={teamImageTeamIds.has(team.id)} />
                 <strong>{team.name}</strong>
                 {index === 0 && <small>Começa</small>}
               </li>
@@ -120,16 +122,19 @@ function SessionLobby({ title, state, canControl, pending, start }: { title: str
   );
 }
 
-export function GameSessionShell({ sessionId, title, initialState, canControl, content, config, theme }: { sessionId: string; title: string; initialState: SessionState; canControl: boolean; content: ActivityContent; config: Record<string, unknown>; theme: ThemeValues }) {
+export function GameSessionShell({ sessionId, title, initialState, initialTeamImageTeamIds, canControl, content, config, theme }: { sessionId: string; title: string; initialState: SessionState; initialTeamImageTeamIds: string[]; canControl: boolean; content: ActivityContent; config: Record<string, unknown>; theme: ThemeValues }) {
+  const router = useRouter();
   const [state, setState] = useState(initialState);
+  const [teamImageTeamIds, setTeamImageTeamIds] = useState(() => new Set(initialTeamImageTeamIds));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
     const response = await fetch(`/api/game-sessions/${sessionId}`);
     if (response.ok) {
-      const result = await response.json() as { state: SessionState };
+      const result = await response.json() as { state: SessionState; teamImageTeamIds: string[] };
       setState(result.state);
+      setTeamImageTeamIds(new Set(result.teamImageTeamIds));
     }
   }, [sessionId]);
 
@@ -161,9 +166,10 @@ export function GameSessionShell({ sessionId, title, initialState, canControl, c
     }
     const result = await response.json().catch(() => ({})) as { error?: string };
     setError(result.error ?? "Comando não executado.");
+    if (response.status === 409) await refresh();
     setPending(false);
     return undefined;
-  }, [canControl, sessionId, state.timer.soundEnabled]);
+  }, [canControl, refresh, sessionId, state.timer.soundEnabled]);
 
   const renameTeam = useCallback(async (teamId: string, name: string) => Boolean(await send({ type: "renameTeam", teamId, name })), [send]);
   const syncExpiredTimer = useCallback(() => void refresh(), [refresh]);
@@ -180,8 +186,10 @@ export function GameSessionShell({ sessionId, title, initialState, canControl, c
   if (state.status === "created") {
     return (
       <SessionLobby
+        sessionId={sessionId}
         title={title}
         state={state}
+        teamImageTeamIds={teamImageTeamIds}
         canControl={canControl}
         pending={pending}
         start={async () => { await unlockSessionAudio(); await send({ type: "startSession" }); }}
@@ -219,7 +227,7 @@ export function GameSessionShell({ sessionId, title, initialState, canControl, c
             <article key={team.id} className={`team-score ${isActive ? "team-score--active" : ""}`} style={{ "--team-color": team.color } as React.CSSProperties}>
               <span className="team-score__status">{isActive ? "Vez da equipe" : "Equipe"}</span>
               <div className="team-score__body">
-                {canControl && state.status !== "finished" ? <TeamNameEditor teamId={team.id} name={team.name} disabled={pending} rename={renameTeam} /> : <h2 title={team.name}>{team.name}</h2>}
+                <div className="team-score__identity"><TeamAvatar sessionId={sessionId} teamId={team.id} teamName={team.name} color={team.color} hasImage={teamImageTeamIds.has(team.id)} />{canControl && state.status !== "finished" ? <TeamNameEditor teamId={team.id} name={team.name} disabled={pending} rename={renameTeam} /> : <h2 title={team.name}>{team.name}</h2>}</div>
                 <span className="team-score__points"><strong aria-label={`${team.score} pontos`}>{team.score}</strong><small>pts</small></span>
               </div>
               {canControl && state.status !== "finished" && (
@@ -244,13 +252,13 @@ export function GameSessionShell({ sessionId, title, initialState, canControl, c
           <ol className="session-ranking" aria-label="Classificação final">
             {ranking.map((team, index) => (
               <li key={team.id} style={{ "--team-color": team.color } as React.CSSProperties}>
-                <span>{index + 1}º</span><strong>{team.name}</strong><b>{team.score} pts</b>
+                <span>{index + 1}º</span><TeamAvatar sessionId={sessionId} teamId={team.id} teamName={team.name} color={team.color} hasImage={teamImageTeamIds.has(team.id)} /><strong>{team.name}</strong><b>{team.score} pts</b>
               </li>
             ))}
           </ol>
           <div className="session-finished__actions">
             {canControl && <button className="button button--secondary" disabled={pending || !state.undoStack.length} onClick={() => send({ type: "undo" })}><RotateCcw aria-hidden="true" /> Desfazer finalização</button>}
-            <Link className="button" href="/library">Encerrar sessão <ArrowRight aria-hidden="true" /></Link>
+            <button className="button" type="button" onClick={async () => { if (canControl) await fetch(`/api/game-sessions/${sessionId}/team-images`, { method: "DELETE" }); router.push("/library"); }}>Encerrar sessão <ArrowRight aria-hidden="true" /></button>
           </div>
         </section>
       ) : (
@@ -264,6 +272,7 @@ export function GameSessionShell({ sessionId, title, initialState, canControl, c
             </div>
             <aside className="session-side-panel" aria-label="Estado da rodada">
               <div className="session-turn-card" style={{ "--team-color": activeTeam.color } as React.CSSProperties}>
+                <TeamAvatar className="session-turn-card__avatar" sessionId={sessionId} teamId={activeTeam.id} teamName={activeTeam.name} color={activeTeam.color} hasImage={teamImageTeamIds.has(activeTeam.id)} />
                 <span>Agora é a vez de</span>
                 <strong>{activeTeam.name}</strong>
                 <small>{activeTeam.score} pontos no placar</small>

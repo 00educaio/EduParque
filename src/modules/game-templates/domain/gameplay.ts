@@ -76,7 +76,7 @@ export function categorizedItems(content: ActivityContent, shuffle: boolean, see
 }
 
 export function groupSortCategories(content: ActivityContent) {
-  return content.flatMap((block) => block.type === "categorized-item" ? block.categories.map(({ id, name }) => ({ id, name })) : []);
+  return content.flatMap((block) => block.type === "categorized-item" ? block.categories.map(({ id, name, media }) => ({ id, name, media })) : []);
 }
 
 export function unscrambleSequences(content: ActivityContent, shuffle: boolean, seed: string) {
@@ -87,6 +87,12 @@ export function unscrambleSequences(content: ActivityContent, shuffle: boolean, 
 export function sequenceUnits(sequence: UnscrambleSequence, mode: "character" | "token") {
   if (mode === "token") return [...sequence.tokens];
   return Array.from(sequence.tokens.join(sequence.splitMode === "character" ? "" : " ").replace(/\s/g, ""));
+}
+
+export function sequenceUnitMode(sequence: Pick<UnscrambleSequence, "splitMode" | "unitMode">, legacyMode: "character" | "token") {
+  if (sequence.unitMode) return sequence.unitMode;
+  if (legacyMode === "character" || sequence.splitMode === "character") return "character" as const;
+  return "token" as const;
 }
 
 export function isSequenceCorrect(expected: readonly string[], answer: readonly string[]) {

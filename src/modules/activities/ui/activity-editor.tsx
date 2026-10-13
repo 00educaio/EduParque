@@ -41,7 +41,7 @@ function GameConfigEditor({ templateKey, value, onChange }: { templateKey: strin
     {templateKey === "matching" && <label>Modo de combinação<select value={String(template.mode ?? "connect")} onChange={(event) => updateTemplate("mode", event.target.value)}><option value="connect">Conectar pares</option><option value="memory">Jogo da memória</option></select></label>}
     {templateKey === "wheel" && <div className="game-config-grid"><label className="check"><input type="checkbox" checked={Boolean(template.removeAfterSpin)} onChange={(event) => updateTemplate("removeAfterSpin", event.target.checked)} /> Remover depois de sortear</label><label className="check"><input type="checkbox" checked={template.allowRepeat !== false} onChange={(event) => updateTemplate("allowRepeat", event.target.checked)} /> Permitir repetição</label><label className="check"><input type="checkbox" checked={Boolean(template.timerAfterSpin)} onChange={(event) => updateTemplate("timerAfterSpin", event.target.checked)} /> Reiniciar timer após giro</label></div>}
     {templateKey === "group-sort" && <label>Modo de separação<select value={String(template.mode ?? "board")} onChange={(event) => updateTemplate("mode", event.target.value)}><option value="board">Board (arrastar e soltar)</option><option value="one-by-one">Um por vez</option></select></label>}
-    {templateKey === "unscramble" && <label>Unidades para ordenar<select value={String(template.tokenMode === "word" ? "token" : template.tokenMode ?? "token")} onChange={(event) => updateTemplate("tokenMode", event.target.value)}><option value="token">Palavras ou segmentos</option><option value="character">Caracteres</option></select></label>}
+    {templateKey === "unscramble" && <div className="game-config-grid"><label>Modo de Verificação<select value={String(template.verificationMode ?? "on-finish")} onChange={(event) => updateTemplate("verificationMode", event.target.value)}><option value="progressive">Verificar letra por letra</option><option value="on-finish">Verificar ao finalizar</option></select></label><label className="check"><input type="checkbox" checked={template.allowPassTurn === true} onChange={(event) => updateTemplate("allowPassTurn", event.target.checked)} /> Permitir passar a vez</label></div>}
     {templateKey === "team-grid" && <div className="game-config-grid"><label>Colunas da grade<input type="number" min={2} max={8} value={Number(template.gridColumns ?? 4)} onChange={(event) => updateTemplate("gridColumns", Number(event.target.value))} /></label><label className="check"><input type="checkbox" checked={Boolean(template.bombTimer)} onChange={(event) => updateTemplate("bombTimer", event.target.checked)} /> Usar timer-bomba</label></div>}
   </section>;
 }
@@ -60,6 +60,8 @@ export function ActivityEditor({ activityId, activitySlug, initialDraft, initial
   const [actionError, setActionError] = useState("");
   const initialized = useRef(false);
   const active = presentations.find((item) => item.id === activeId) ?? presentations[0];
+  const activeTemplateConfig = active && typeof active.gameConfig.template === "object" && active.gameConfig.template ? active.gameConfig.template as Record<string, unknown> : {};
+  const unscrambleLegacyTokenMode = activeTemplateConfig.tokenMode === "character" ? "character" as const : "token" as const;
   const resolvedTheme = useMemo(() => resolveTheme(defaultSystemTheme, active?.themeOverride ?? {}), [active?.themeOverride]);
   const publishableContent = useMemo(() => activityContentSchema.safeParse(draft.content), [draft.content]);
 
@@ -164,7 +166,7 @@ export function ActivityEditor({ activityId, activitySlug, initialDraft, initial
               <label>Descrição<textarea rows={3} value={draft.description ?? ""} onChange={(event) => setDraft({ ...draft, description: event.target.value || null })} /></label>
               <div className="activity-basics__row"><label>Tags, separadas por vírgula<input value={tagsInput} onChange={(event) => { const value = event.target.value; setTagsInput(value); setDraft((current) => ({ ...current, tags: value.split(",").map((tag) => tag.trim()).filter(Boolean) })); }} /></label><label>Visibilidade<select value={draft.visibility} onChange={(event) => setDraft({ ...draft, visibility: event.target.value as ActivityDraftInput["visibility"] })}><option value="private">Privada</option><option value="unlisted">Não listada</option><option value="public">Pública</option></select></label></div>
             </section>
-            <ContentVisualEditor content={draft.content} activeTemplateKey={active?.templateKey ?? "quiz"} allowAdvanced={allowAdvanced} onChange={(content) => setDraft((current) => ({ ...current, content }))} />
+            <ContentVisualEditor content={draft.content} activeTemplateKey={active?.templateKey ?? "quiz"} unscrambleLegacyTokenMode={unscrambleLegacyTokenMode} allowAdvanced={allowAdvanced} onChange={(content) => setDraft((current) => ({ ...current, content }))} />
           </section>}
 
           {tab === "game" && active && <section id="editor-panel-game" aria-labelledby="editor-tab-game" className="form-stack">

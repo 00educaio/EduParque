@@ -8,6 +8,7 @@ import { ForbiddenError, type AuthorizedUser } from "@/modules/auth/application/
 import { createInitialSessionState, InvalidSessionCommandError, reduceSession, restoreSessionState } from "@/modules/game-sessions/domain/session-reducer";
 import { createSessionInputSchema, sessionCommandSchema, sessionStateSchema, type CreateSessionInput, type SessionCommand } from "@/modules/game-sessions/domain/session";
 import { getGameTemplate } from "@/modules/game-templates";
+import { listTemporaryTeamImageIds } from "@/modules/game-sessions/infrastructure/temporary-team-image-store";
 
 export class GameSessionNotFoundError extends Error {
   readonly status = 404;
@@ -106,7 +107,7 @@ export async function getGameSession(sessionId: string, user?: AuthorizedUser, c
     catch (error) { if (!(error instanceof InvalidSessionCommandError)) throw error; }
     source = await readSessionRecord(sessionId);
   }
-  return { id: source.record.id, hostUserId: source.record.hostUserId, canControl: canControl(source.record.hostUserId, source.record.hostTokenHash, user, controllerToken), state: restoreSessionState(source.record.state), snapshot: source.snapshot, presentation: source.presentation };
+  return { id: source.record.id, hostUserId: source.record.hostUserId, canControl: canControl(source.record.hostUserId, source.record.hostTokenHash, user, controllerToken), state: restoreSessionState(source.record.state), teamImageTeamIds: await listTemporaryTeamImageIds(sessionId), snapshot: source.snapshot, presentation: source.presentation };
 }
 
 export async function executeSessionCommand(sessionId: string, rawCommand: unknown, user?: AuthorizedUser, internal = false, controllerToken?: string) {

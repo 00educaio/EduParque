@@ -34,4 +34,18 @@ describe("ActivityRevisionSnapshot", () => {
     const reloaded = activityDraftInputSchema.parse(JSON.parse(JSON.stringify(activityDraftInputSchema.parse(input))));
     expect(reloaded.content[0]).toEqual(input.content[0]);
   });
+
+  it("serializa e recarrega a imagem opcional de uma categoria", () => {
+    const presentationId = crypto.randomUUID();
+    const media = { assetId: crypto.randomUUID(), kind: "image" as const, filename: "animais.webp" };
+    const input = {
+      title: "Categorias visuais", description: null, tags: [], visibility: "private" as const, defaultPresentationId: presentationId,
+      content: [{ type: "categorized-item" as const, id: "groups", categories: [
+        { id: "animals", name: "Animais", media, items: [{ id: "dog", text: "Cachorro" }] },
+        { id: "plants", name: "Plantas", items: [{ id: "tree", text: "Árvore" }] },
+      ] }],
+    };
+    const reloaded = activityDraftInputSchema.parse(JSON.parse(JSON.stringify(activityDraftInputSchema.parse(input))));
+    expect(reloaded.content[0]).toEqual(input.content[0]);
+  });
 });

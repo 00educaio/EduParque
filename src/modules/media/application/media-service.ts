@@ -52,7 +52,7 @@ function snapshotReferencesAsset(snapshot: unknown, assetId: string) {
   return parsed.data.content.some((block) => {
     if (block.type === "prompt-answer" || block.type === "item-list") return block.items.some((item) => item.media?.assetId === assetId);
     if (block.type === "pair") return block.pairs.some((item) => item.media?.assetId === assetId || item.leftMedia?.assetId === assetId || item.rightMedia?.assetId === assetId);
-    if (block.type === "categorized-item") return block.categories.some((category) => category.items.some((item) => item.media?.assetId === assetId));
+    if (block.type === "categorized-item") return block.categories.some((category) => category.media?.assetId === assetId || category.items.some((item) => item.media?.assetId === assetId));
     return block.sequences.some((item) => item.media?.assetId === assetId);
   });
 }

@@ -8,3 +8,4 @@ test-results
 storage/*
 !storage/.gitkeep
 *.tsbuildinfo
+todo.md
