@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, ChevronRight, CircleAlert, ExternalLink, Gamepad2, Layers3, LoaderCircle, Palette, Plus, Save, Settings2, Sparkles, Trash2 } from "lucide-react";
+import { Check, ChevronRight, CircleAlert, CircleHelp, ExternalLink, Gamepad2, Layers3, LoaderCircle, Palette, Plus, Save, Settings2, Sparkles, Trash2 } from "lucide-react";
 import type { ActivityDraftInput } from "@/modules/activities/domain/activity-schemas";
 import { activityContentSchema } from "@/shared/domain/content-blocks";
 import { defaultSystemTheme, resolveTheme } from "@/modules/themes/domain/theme-values";
@@ -127,6 +127,7 @@ export function ActivityEditor({ activityId, activitySlug, initialDraft, initial
         <div className="editor-topbar__activity"><span>Editando atividade</span><strong>{draft.title || "Atividade sem título"}</strong></div>
       </div>
       <div className="editor-topbar__actions">
+        <Link className="button button--ghost editor-help-button" href="/ajuda"><CircleHelp aria-hidden="true" /> Ajuda</Link>
         <span className={`save-state save-state--${saveStateClass}`} role="status" aria-live="polite">
           {saveState === "Salvo" ? <Check aria-hidden="true" /> : saveState === "Salvando" ? <LoaderCircle aria-hidden="true" /> : saveState === "Erro" ? <CircleAlert aria-hidden="true" /> : <Save aria-hidden="true" />}{saveState}
         </span>

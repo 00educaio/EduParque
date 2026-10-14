@@ -13,6 +13,7 @@ export type AppHeaderLink = { href: Route; label: string };
 export function AppHeader({ links = [], actions }: { links?: AppHeaderLink[]; actions?: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const navigationLinks = links.some((item) => item.href === "/ajuda") ? links : [...links, { href: "/ajuda" as const, label: "Ajuda" }];
 
   return (
     <header className="site-header app-header">
@@ -28,7 +29,7 @@ export function AppHeader({ links = [], actions }: { links?: AppHeaderLink[]; ac
         {open ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
       </button>
       <nav id="app-navigation" className={`app-header__navigation ${open ? "is-open" : ""}`} aria-label="Navegação principal">
-        {links.map((item) => (
+        {navigationLinks.map((item) => (
           <Link key={`${item.href}-${item.label}`} href={item.href} aria-current={pathname === item.href ? "page" : undefined} onClick={() => setOpen(false)}>
             {item.label}
           </Link>

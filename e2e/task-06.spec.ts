@@ -33,6 +33,14 @@ test("fluxo principal termina uma partida publica sem conta", async ({ page }) =
   await page.getByRole("button", { name: "Iniciar sessão" }).click();
   await page.getByRole("button", { name: "Criar sessão" }).click();
   await page.getByRole("button", { name: "Iniciar sessão", exact: true }).click();
+  const scoreBeforeHelp = await page.locator(".team-score").first().locator("strong").textContent();
+  const helpTrigger = page.getByRole("button", { name: "Como jogar?" });
+  await helpTrigger.click();
+  await expect(page.getByRole("dialog").getByRole("heading", { name: "Como jogar: Quiz" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(helpTrigger).toBeFocused();
+  await expect(page.locator(".team-score").first().locator("strong")).toHaveText(scoreBeforeHelp ?? "0");
   await page.getByRole("button", { name: /Brasília/ }).click();
   await page.getByRole("button", { name: "Verificar resposta" }).click();
   await expect(page.locator(".team-score").first().locator("strong")).toHaveText("100");

@@ -19,6 +19,9 @@ export const activityVisibilityEnum = pgEnum("activity_visibility", ["private", 
 export const themeKindEnum = pgEnum("theme_kind", ["system", "user"]);
 export const mediaKindEnum = pgEnum("media_kind", ["image", "audio"]);
 export const sessionStatusEnum = pgEnum("session_status", ["created", "active", "paused", "finished"]);
+export const supportTicketCategoryEnum = pgEnum("support_ticket_category", ["question", "suggestion", "technical", "other"]);
+export const supportTicketStatusEnum = pgEnum("support_ticket_status", ["open", "answered", "closed"]);
+export const supportAuthorKindEnum = pgEnum("support_author_kind", ["teacher", "admin"]);
 
 export const users = pgTable(
   "users",
@@ -194,6 +197,38 @@ export const sessionEvents = pgTable(
   (table) => [uniqueIndex("session_events_sequence_unique").on(table.sessionId, table.sequence)],
 );
 
+export const supportTickets = pgTable(
+  "support_tickets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    category: supportTicketCategoryEnum("category").notNull(),
+    subject: text("subject").notNull(),
+    status: supportTicketStatusEnum("status").notNull().default("open"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("support_tickets_owner_idx").on(table.ownerId),
+    index("support_tickets_status_idx").on(table.status),
+    index("support_tickets_updated_idx").on(table.updatedAt),
+  ],
+);
+
+export const supportMessages = pgTable(
+  "support_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ticketId: uuid("ticket_id").notNull().references(() => supportTickets.id, { onDelete: "restrict" }),
+    authorId: uuid("author_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    authorKind: supportAuthorKindEnum("author_kind").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("support_messages_ticket_created_idx").on(table.ticketId, table.createdAt)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Activity = typeof activities.$inferSelect;
 export type ActivityRevision = typeof activityRevisions.$inferSelect;
@@ -203,3 +238,5 @@ export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type Favorite = typeof favorites.$inferSelect;
 export type GameSession = typeof gameSessions.$inferSelect;
 export type SessionEvent = typeof sessionEvents.$inferSelect;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+export type SupportMessage = typeof supportMessages.$inferSelect;

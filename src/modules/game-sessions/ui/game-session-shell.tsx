@@ -24,6 +24,7 @@ import { GameRenderer } from "@/modules/game-templates/ui/game-renderer";
 import type { ThemeValues } from "@/modules/themes/domain/theme-values";
 import type { ActivityContent } from "@/shared/domain/content-blocks";
 import { BrandMark } from "@/shared/ui/components";
+import { SessionGameHelp } from "@/modules/help/session-game-help";
 import { SessionTimer } from "./session-timer";
 import { playSessionSound, unlockSessionAudio } from "./session-audio";
 import { TeamAvatar } from "./team-avatar";
@@ -74,7 +75,10 @@ function SessionLobby({ sessionId, title, state, teamImageTeamIds, canControl, p
 
       <header className="session-lobby__topbar">
         <BrandMark />
-        <Link className="session-lobby__back" href="/library"><ArrowLeft aria-hidden="true" /> Voltar à biblioteca</Link>
+        <div className="session-lobby__topbar-actions">
+          {canControl && <SessionGameHelp templateKey={state.template.sourceTemplateKey} />}
+          <Link className="session-lobby__back" href="/library"><ArrowLeft aria-hidden="true" /> Voltar à biblioteca</Link>
+        </div>
       </header>
 
       <section className="session-lobby__content" aria-labelledby="session-lobby-title">
@@ -215,6 +219,7 @@ export function GameSessionShell({ sessionId, title, initialState, initialTeamIm
               <Volume2 aria-hidden="true" /> Testar som
             </button>
           )}
+          {canControl && <SessionGameHelp templateKey={state.template.sourceTemplateKey} />}
         </div>
       </header>
 
