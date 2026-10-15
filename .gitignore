@@ -3,8 +3,23 @@ node_modules
 coverage
 playwright-report
 test-results
-.env
-.env.local
+
+# Variáveis e segredos locais. Somente modelos fictícios podem ser versionados.
+.env*
+!.env.example
+!.env.*.example
+.dev.vars*
+!.dev.vars.example
+.wrangler/
+wrangler.local.*
+.pgpass
+
+# Backups e dumps de banco nunca devem entrar no Git.
+backups/
+*.backup
+*.dump
+*.sql.gz
+
 storage/*
 !storage/.gitkeep
 *.tsbuildinfo
