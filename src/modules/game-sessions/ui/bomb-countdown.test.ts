@@ -57,7 +57,7 @@ describe("BombCountdown completion", () => {
 
   beforeEach(() => {
     container = document.createElement("div");
-    document.body.append(container);
+    document.body.appendChild(container);
     root = createRoot(container);
     now = 0;
     nextFrameId = 0;

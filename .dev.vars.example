@@ -1,0 +1,2 @@
+# Seleciona os arquivos .env de desenvolvimento ao executar o Worker local.
+NEXTJS_ENV=development

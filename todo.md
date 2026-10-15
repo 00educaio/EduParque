@@ -32,15 +32,17 @@
 
 ## 3. Integrar Next.js 16 com Cloudflare Workers
 
-- [ ] Instalar e fixar versões compatíveis de `@opennextjs/cloudflare` e `wrangler`.
-- [ ] Criar `open-next.config.ts`.
-- [ ] Criar `wrangler.jsonc` com uma data de compatibilidade validada e a flag `nodejs_compat`.
-- [ ] Configurar os assets estáticos gerados pelo OpenNext.
-- [ ] Habilitar o contexto Cloudflare no desenvolvimento local conforme a documentação da versão instalada.
-- [ ] Adicionar scripts para gerar tipos, criar o build Cloudflare, executar preview e fazer deploy.
-- [ ] Gerar os tipos dos bindings do Cloudflare e incluí-los no TypeScript.
-- [ ] Verificar se `postgres` precisa permanecer em `serverExternalPackages` para o runtime do Worker.
-- [ ] Executar `lint`, `typecheck`, testes e o build OpenNext.
+- [x] Instalar e fixar versões compatíveis de `@opennextjs/cloudflare` e `wrangler`.
+- [x] Criar `open-next.config.ts`.
+- [x] Criar `wrangler.jsonc` com uma data de compatibilidade validada e a flag `nodejs_compat`.
+- [x] Configurar os assets estáticos gerados pelo OpenNext.
+- [x] Habilitar o contexto Cloudflare no desenvolvimento local conforme a documentação da versão instalada.
+- [x] Adicionar scripts para gerar tipos, criar o build Cloudflare, executar preview e fazer deploy.
+- [x] Gerar os tipos dos bindings do Cloudflare e incluí-los no TypeScript.
+- [x] Verificar se `postgres` precisa permanecer em `serverExternalPackages` para o runtime do Worker. Confirmado: deve permanecer empacotado para usar sua exportação `workerd`.
+- [x] Executar `lint`, `typecheck`, testes e o build OpenNext.
+
+**Estado do preview:** a página inicial responde `200` no runtime local do Worker. A rota `/api/health` ainda responde `503` porque a conexão TLS direta do Neon usa uma opção não implementada pelo `workerd`; a troca para Hyperdrive faz parte da etapa 4.
 
 **Concluído quando:** a aplicação abre no preview local do Worker sem erro de runtime ou importação de módulos Node incompatíveis.
 
