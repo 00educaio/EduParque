@@ -8,7 +8,9 @@ const globalForDatabase = globalThis as unknown as { sql?: ReturnType<typeof pos
 const sql =
   globalForDatabase.sql ??
   postgres(getEnv().DATABASE_URL, {
-    max: process.env.NODE_ENV === "development" ? 5 : 10,
+    max: process.env.NODE_ENV === "development" ? 5 : 3,
+    connect_timeout: 10,
+    idle_timeout: 20,
     prepare: false,
   });
 
