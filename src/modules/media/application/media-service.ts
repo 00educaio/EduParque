@@ -49,11 +49,12 @@ export async function getOwnedMedia(assetId: string, ownerId: string) {
 function snapshotReferencesAsset(snapshot: unknown, assetId: string) {
   const parsed = activityRevisionSnapshotSchema.safeParse(snapshot);
   if (!parsed.success || parsed.data.visibility === "private") return false;
+  const references = (media: { assetId: string } | { source: "external" } | undefined) => Boolean(media && "assetId" in media && media.assetId === assetId);
   return parsed.data.content.some((block) => {
-    if (block.type === "prompt-answer" || block.type === "item-list") return block.items.some((item) => item.media?.assetId === assetId);
-    if (block.type === "pair") return block.pairs.some((item) => item.media?.assetId === assetId || item.leftMedia?.assetId === assetId || item.rightMedia?.assetId === assetId);
-    if (block.type === "categorized-item") return block.categories.some((category) => category.media?.assetId === assetId || category.items.some((item) => item.media?.assetId === assetId));
-    return block.sequences.some((item) => item.media?.assetId === assetId);
+    if (block.type === "prompt-answer" || block.type === "item-list") return block.items.some((item) => references(item.media));
+    if (block.type === "pair") return block.pairs.some((item) => references(item.media) || references(item.leftMedia) || references(item.rightMedia));
+    if (block.type === "categorized-item") return block.categories.some((category) => references(category.media) || category.items.some((item) => references(item.media)));
+    return block.sequences.some((item) => references(item.media));
   });
 }
 

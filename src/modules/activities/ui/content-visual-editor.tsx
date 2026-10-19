@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useId, useState } from "react";
-import { activityContentSchema, editableActivityContentSchema, type EditableActivityContent, type EditableContentBlock, type MediaReference } from "@/shared/domain/content-blocks";
+import { activityContentSchema, editableActivityContentSchema, externalMediaUrlSchema, mediaReferenceUrl, type EditableActivityContent, type EditableContentBlock, type MediaReference } from "@/shared/domain/content-blocks";
 import { contentAdapterRegistry } from "@/modules/game-templates/content-adapters";
 import { sequenceUnitMode } from "@/modules/game-templates/domain/gameplay";
 import { getGameTemplate } from "@/modules/game-templates";
@@ -50,6 +50,8 @@ function ItemActions({ index, total, onMove, onDuplicate, onDelete }: { index: n
 
 function MediaAttachment({ value, imageOnly = false, onChange }: { value?: MediaReference; imageOnly?: boolean; onChange: (media?: MediaReference) => void }) {
   const id = useId(); const [uploading, setUploading] = useState(false); const [error, setError] = useState("");
+  const [externalUrl, setExternalUrl] = useState("");
+  const [externalKind, setExternalKind] = useState<"image" | "audio">("image");
   async function upload(file?: File) {
     if (!file) return; setUploading(true); setError("");
     const data = new FormData(); data.set("file", file);
@@ -58,8 +60,21 @@ function MediaAttachment({ value, imageOnly = false, onChange }: { value?: Media
     else { const result = await response.json().catch(() => ({})) as { error?: string }; setError(result.error ?? "Não foi possível enviar o arquivo."); }
     setUploading(false);
   }
-  if (value) return <div className="media-attachment">{value.kind === "image" ? <div className="media-attachment__image"><Image src={`/api/media/${value.assetId}`} alt={value.filename} fill sizes="160px" unoptimized /></div> : <audio controls src={`/api/media/${value.assetId}`}>Seu navegador não suporta áudio.</audio>}<span>{value.filename}</span><button type="button" onClick={() => onChange(undefined)}>Remover mídia</button></div>;
-  return <div className="media-buttons"><label htmlFor={`${id}-image`}>{uploading ? "Enviando…" : "+ Imagem"}<input id={`${id}-image`} hidden type="file" accept={imageOnly ? "image/jpeg,image/png,image/webp" : "image/jpeg,image/png,image/webp,image/gif"} disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} /></label>{!imageOnly && <label htmlFor={`${id}-audio`}>{uploading ? "Enviando…" : "+ Áudio"}<input id={`${id}-audio`} hidden type="file" accept="audio/mpeg,audio/ogg,audio/wav,audio/mp4,audio/flac" disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} /></label>}{error && <span className="field-error">{error}</span>}</div>;
+  function addExternal() {
+    setError("");
+    const parsed = externalMediaUrlSchema.safeParse(externalUrl);
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "URL externa inválida."); return; }
+    const url = new URL(parsed.data);
+    const pathName = url.pathname.split("/").filter(Boolean).at(-1);
+    let filename = pathName || url.hostname;
+    try { filename = decodeURIComponent(filename); } catch { /* Mantem o nome codificado se a URL for malformada. */ }
+    onChange({ source: "external", externalUrl: parsed.data, kind: imageOnly ? "image" : externalKind, filename: filename.slice(0, 255) });
+  }
+  if (value) {
+    const source = mediaReferenceUrl(value);
+    return <div className="media-attachment">{value.kind === "image" ? <div className="media-attachment__image"><Image src={source} alt={value.filename} fill sizes="160px" unoptimized /></div> : <audio controls src={source}>Seu navegador não suporta áudio.</audio>}<span>{value.filename}{value.source === "external" ? " (URL externa)" : ""}</span><button type="button" onClick={() => onChange(undefined)}>Remover mídia</button></div>;
+  }
+  return <div className="media-buttons"><label htmlFor={`${id}-image`}>{uploading ? "Enviando…" : "+ Imagem"}<input id={`${id}-image`} hidden type="file" accept={imageOnly ? "image/jpeg,image/png,image/webp" : "image/jpeg,image/png,image/webp,image/gif"} disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} /></label>{!imageOnly && <label htmlFor={`${id}-audio`}>{uploading ? "Enviando…" : "+ Áudio"}<input id={`${id}-audio`} hidden type="file" accept="audio/mpeg,audio/ogg,audio/wav,audio/mp4,audio/flac" disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} /></label>}<div className="external-media-form"><input type="url" inputMode="url" placeholder="https://…" aria-label="URL HTTPS externa da mídia" value={externalUrl} onChange={(event) => setExternalUrl(event.target.value)} />{!imageOnly && <select aria-label="Tipo da mídia externa" value={externalKind} onChange={(event) => setExternalKind(event.target.value as "image" | "audio")}><option value="image">Imagem</option><option value="audio">Áudio</option></select>}<button type="button" disabled={!externalUrl.trim()} onClick={addExternal}>Usar URL</button></div>{error && <span className="field-error">{error}</span>}</div>;
 }
 
 function PasteImport({ hint, onImport }: { hint: string; onImport: (lines: string[]) => void }) {

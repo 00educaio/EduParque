@@ -8,6 +8,8 @@ import {
   promptAnswerBlockSchema,
   sequenceBlockSchema,
   editableActivityContentSchema,
+  externalMediaUrlSchema,
+  mediaReferenceSchema,
 } from "./content-blocks";
 
 describe("ContentBlocks", () => {
@@ -73,6 +75,21 @@ describe("ContentBlocks", () => {
 
   it("aceita referencia validada de imagem ou audio", () => {
     expect(itemListBlockSchema.safeParse({ type: "item-list", id: "list", items: [{ id: "i1", text: "Som", media: { assetId: crypto.randomUUID(), kind: "audio", filename: "som.ogg" } }] }).success).toBe(true);
+  });
+
+  it("aceita URL HTTPS externa sem transformar o servidor em proxy", () => {
+    expect(mediaReferenceSchema.safeParse({ source: "external", externalUrl: "https://cdn.example.org/aulas/mapa.webp", kind: "image", filename: "mapa.webp" }).success).toBe(true);
+  });
+
+  it.each([
+    "http://cdn.example.org/audio.mp3",
+    "https://localhost/imagem.png",
+    "https://127.0.0.1/imagem.png",
+    "https://10.0.0.8/imagem.png",
+    "https://usuario:senha@example.org/imagem.png",
+    "https://example.org/imagem.png#fragmento",
+  ])("rejeita URL externa insegura: %s", (url) => {
+    expect(externalMediaUrlSchema.safeParse(url).success).toBe(false);
   });
 
   it("aceita pares formados somente por imagens ou por conteúdo misto", () => {

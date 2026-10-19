@@ -4,11 +4,46 @@ const idSchema = z.string().trim().min(1).max(100);
 const textSchema = z.string().trim().min(1).max(10_000);
 const draftTextSchema = z.string().max(10_000);
 
-export const mediaReferenceSchema = z.object({
+const storedMediaReferenceSchema = z.object({
   assetId: z.string().uuid(),
   kind: z.enum(["image", "audio"]),
   filename: z.string().trim().min(1).max(255),
+  source: z.literal("stored").optional(),
 });
+
+function isPublicHttpsUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password || url.hash) return false;
+    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local") || hostname.endsWith(".internal")) return false;
+    if (hostname.includes(":")) return false;
+    if (/^\d+(?:\.\d+){3}$/.test(hostname)) {
+      const parts = hostname.split(".").map(Number);
+      if (parts.some((part) => part < 0 || part > 255)) return false;
+      const [a = 0, b = 0] = parts;
+      if (a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && (b === 0 || b === 168)) || (a === 198 && (b === 18 || b === 19))) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export const externalMediaUrlSchema = z.string().trim().max(2_048).refine(isPublicHttpsUrl, "Use uma URL HTTPS publica, sem credenciais ou fragmento.");
+
+const externalMediaReferenceSchema = z.object({
+  source: z.literal("external"),
+  externalUrl: externalMediaUrlSchema,
+  kind: z.enum(["image", "audio"]),
+  filename: z.string().trim().min(1).max(255),
+});
+
+export const mediaReferenceSchema = z.union([storedMediaReferenceSchema, externalMediaReferenceSchema]);
+
+export function mediaReferenceUrl(media: z.infer<typeof mediaReferenceSchema>) {
+  return media.source === "external" ? media.externalUrl : `/api/media/${media.assetId}`;
+}
 
 export const contentBlockTypeSchema = z.enum([
   "prompt-answer",
