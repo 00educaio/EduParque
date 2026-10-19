@@ -11,13 +11,13 @@ import { unlockSessionAudio } from "./session-audio";
 
 const colors = ["#0f766e", "#b45309", "#7c3aed", "#be123c", "#1d4ed8", "#4d7c0f", "#c2410c", "#4338ca"];
 const TEAM_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_TEAM_IMAGE_BYTES = 3 * 1024 * 1024;
+const MAX_TEAM_IMAGE_BYTES = 5 * 1024 * 1024;
 
 type SelectedTeamImage = { file: File; previewUrl: string };
 
 async function validateTeamImage(file: File) {
   if (!TEAM_IMAGE_TYPES.has(file.type)) throw new Error("Use uma imagem PNG, JPG/JPEG ou WebP.");
-  if (file.size > MAX_TEAM_IMAGE_BYTES) throw new Error("A imagem pode ter no máximo 3 MB.");
+  if (file.size > MAX_TEAM_IMAGE_BYTES) throw new Error("A imagem pode ter no máximo 5 MiB.");
   if (!file.size) throw new Error("A imagem está vazia.");
   if ("createImageBitmap" in window) {
     try { const bitmap = await createImageBitmap(file); bitmap.close(); }
@@ -92,9 +92,19 @@ export function StartSessionPanel({ activityId, presentationId, templateKey, gam
         if (!response.ok) throw new Error(`Não foi possível remover a imagem da equipe ${index + 1}.`);
         return;
       }
-      const data = new FormData(); data.set("file", image.file);
-      const response = await fetch(endpoint, { method: "POST", body: data });
-      if (!response.ok) { const result = await response.json().catch(() => ({})) as { error?: string }; throw new Error(result.error ?? `Não foi possível enviar a imagem da equipe ${index + 1}.`); }
+      const preparedResponse = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mimeType: image.file.type, byteSize: image.file.size }) });
+      if (preparedResponse.status === 501) {
+        const data = new FormData(); data.set("file", image.file);
+        const localResponse = await fetch(endpoint, { method: "POST", body: data });
+        if (!localResponse.ok) { const result = await localResponse.json().catch(() => ({})) as { error?: string }; throw new Error(result.error ?? `Não foi possível enviar a imagem da equipe ${index + 1}.`); }
+        return;
+      }
+      if (!preparedResponse.ok) { const result = await preparedResponse.json().catch(() => ({})) as { error?: string }; throw new Error(result.error ?? `Não foi possível autorizar a imagem da equipe ${index + 1}.`); }
+      const prepared = await preparedResponse.json() as { id: string; uploadUrl: string; uploadHeaders: Record<string, string> };
+      const uploadedResponse = await fetch(prepared.uploadUrl, { method: "PUT", headers: prepared.uploadHeaders, body: image.file });
+      if (!uploadedResponse.ok) throw new Error(`O bucket recusou a imagem da equipe ${index + 1}. Confira o CORS.`);
+      const completedResponse = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ uploadId: prepared.id }) });
+      if (!completedResponse.ok) { const result = await completedResponse.json().catch(() => ({})) as { error?: string }; throw new Error(result.error ?? `Não foi possível validar a imagem da equipe ${index + 1}.`); }
     });
     try { await Promise.all(uploads); router.push(`/session/${target.id}`); }
     catch (uploadError) { setError(`${uploadError instanceof Error ? uploadError.message : "Falha ao enviar uma imagem."} A sessão foi criada; tente novamente.`); setPending(false); }

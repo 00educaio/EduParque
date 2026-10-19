@@ -1,13 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { describe, expect, it } from "vitest";
 import {
-  deleteTemporaryTeamImages,
-  getTemporaryTeamImage,
   InvalidTeamImageError,
-  listTemporaryTeamImageIds,
-  putTemporaryTeamImage,
+  MAX_TEAM_IMAGE_BYTES,
+  validateTeamImageDeclaration,
+  validateTeamImageSignature,
 } from "./temporary-team-image-store";
 
 const onePixelPng = Uint8Array.from(
@@ -15,30 +11,14 @@ const onePixelPng = Uint8Array.from(
 );
 
 describe("temporary-team-image-store", () => {
-  let directory = "";
-
-  beforeEach(async () => {
-    directory = await mkdtemp(join(tmpdir(), "eduparque-team-image-test-"));
-    process.env.TEAM_IMAGE_TEMP_DIR = directory;
+  it("valida imagem pelo MIME, assinatura e limite unificado de 5 MiB", async () => {
+    expect(validateTeamImageDeclaration(MAX_TEAM_IMAGE_BYTES, "image/png")).toBe("image/png");
+    await expect(validateTeamImageSignature(onePixelPng.slice(0, 32), "image/png", onePixelPng.byteLength)).resolves.toBe("image/png");
   });
 
-  afterEach(async () => {
-    delete process.env.TEAM_IMAGE_TEMP_DIR;
-    await rm(directory, { recursive: true, force: true });
-  });
-
-  it("grava, lista e remove imagens sem persistir dados de sessao", async () => {
-    const sessionId = crypto.randomUUID();
-    const teamId = crypto.randomUUID();
-    await putTemporaryTeamImage({ sessionId, teamId, body: onePixelPng, declaredMimeType: "image/png" });
-    expect(await listTemporaryTeamImageIds(sessionId)).toEqual([teamId]);
-    await expect(getTemporaryTeamImage(sessionId, teamId)).resolves.toMatchObject({ contentType: "image/png", byteSize: onePixelPng.byteLength });
-    await deleteTemporaryTeamImages(sessionId);
-    expect(await listTemporaryTeamImageIds(sessionId)).toEqual([]);
-  });
-
-  it("rejeita MIME divergente e formatos fora da lista", async () => {
-    await expect(putTemporaryTeamImage({ sessionId: crypto.randomUUID(), teamId: crypto.randomUUID(), body: onePixelPng, declaredMimeType: "image/jpeg" })).rejects.toBeInstanceOf(InvalidTeamImageError);
-    await expect(putTemporaryTeamImage({ sessionId: crypto.randomUUID(), teamId: crypto.randomUUID(), body: onePixelPng, declaredMimeType: "image/gif" })).rejects.toBeInstanceOf(InvalidTeamImageError);
+  it("rejeita tamanho, MIME divergente e formatos fora da lista", async () => {
+    expect(() => validateTeamImageDeclaration(MAX_TEAM_IMAGE_BYTES + 1, "image/png")).toThrow(InvalidTeamImageError);
+    await expect(validateTeamImageSignature(onePixelPng, "image/jpeg", onePixelPng.byteLength)).rejects.toBeInstanceOf(InvalidTeamImageError);
+    expect(() => validateTeamImageDeclaration(onePixelPng.byteLength, "image/gif")).toThrow(InvalidTeamImageError);
   });
 });

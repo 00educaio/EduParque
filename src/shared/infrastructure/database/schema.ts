@@ -191,6 +191,26 @@ export const gameSessions = pgTable(
   (table) => [index("game_sessions_activity_idx").on(table.activityId)],
 );
 
+export const temporaryTeamImages = pgTable(
+  "temporary_team_images",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sessionId: uuid("session_id").notNull().references(() => gameSessions.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").notNull(),
+    storageKey: text("storage_key").notNull().unique(),
+    contentType: text("content_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    uploadStatus: mediaUploadStatusEnum("upload_status").notNull().default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("temporary_team_images_state_unique").on(table.sessionId, table.teamId, table.uploadStatus),
+    index("temporary_team_images_expiry_idx").on(table.uploadStatus, table.expiresAt),
+  ],
+);
+
 export const sessionEvents = pgTable(
   "session_events",
   {
@@ -242,6 +262,7 @@ export type ActivityRevision = typeof activityRevisions.$inferSelect;
 export type Presentation = typeof presentations.$inferSelect;
 export type Theme = typeof themes.$inferSelect;
 export type MediaAsset = typeof mediaAssets.$inferSelect;
+export type TemporaryTeamImage = typeof temporaryTeamImages.$inferSelect;
 export type Favorite = typeof favorites.$inferSelect;
 export type GameSession = typeof gameSessions.$inferSelect;
 export type SessionEvent = typeof sessionEvents.$inferSelect;

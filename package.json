@@ -14,6 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "media:inventory": "tsx scripts/media-inventory.ts",
+    "media:migrate": "tsx scripts/migrate-media-to-s3.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/shared/infrastructure/database/migrate.ts",
     "db:seed": "node --conditions react-server --import tsx src/shared/infrastructure/database/seed.ts",

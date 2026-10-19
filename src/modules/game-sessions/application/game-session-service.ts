@@ -8,7 +8,7 @@ import { ForbiddenError, type AuthorizedUser } from "@/modules/auth/application/
 import { createInitialSessionState, InvalidSessionCommandError, reduceSession, restoreSessionState } from "@/modules/game-sessions/domain/session-reducer";
 import { createSessionInputSchema, sessionCommandSchema, sessionStateSchema, type CreateSessionInput, type SessionCommand } from "@/modules/game-sessions/domain/session";
 import { getGameTemplate } from "@/modules/game-templates";
-import { listTemporaryTeamImageIds } from "@/modules/game-sessions/infrastructure/temporary-team-image-store";
+import { deleteTemporaryTeamImages, listTemporaryTeamImageIds } from "@/modules/game-sessions/infrastructure/temporary-team-image-store";
 
 export class GameSessionNotFoundError extends Error {
   readonly status = 404;
@@ -113,7 +113,7 @@ export async function getGameSession(sessionId: string, user?: AuthorizedUser, c
 export async function executeSessionCommand(sessionId: string, rawCommand: unknown, user?: AuthorizedUser, internal = false, controllerToken?: string) {
   const command: SessionCommand = sessionCommandSchema.parse(rawCommand);
   if (command.type === "expireTimer" && !internal) throw new ForbiddenError();
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     await tx.execute(sql`select id from ${gameSessions} where ${gameSessions.id} = ${sessionId} for update`);
     const [record] = await tx.select().from(gameSessions).where(eq(gameSessions.id, sessionId)).limit(1);
     if (!record) throw new GameSessionNotFoundError();
@@ -123,6 +123,8 @@ export async function executeSessionCommand(sessionId: string, rawCommand: unkno
     await tx.insert(sessionEvents).values({ sessionId, sequence: result.event.sequence, type: result.event.type, payload: result.event.payload });
     return result;
   });
+  if (result.state.status === "finished") await deleteTemporaryTeamImages(sessionId).catch((error) => console.error("Falha ao remover imagens temporarias da sessao finalizada.", error));
+  return result;
 }
 
 export { InvalidSessionCommandError };

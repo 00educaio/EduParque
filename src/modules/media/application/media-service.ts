@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/shared/infrastructure/database/client";
 import { activities, activityRevisions, mediaAssets } from "@/shared/infrastructure/database/schema";
 import { activityRevisionSnapshotSchema } from "@/modules/activities/domain/activity-schemas";
@@ -122,6 +122,18 @@ export async function finalizeMediaUpload(assetId: string, ownerId: string) {
     .where(and(eq(mediaAssets.id, asset.id), eq(mediaAssets.ownerId, ownerId), eq(mediaAssets.uploadStatus, "pending"))).returning();
   if (!ready) throw new InvalidMediaError("O upload ja foi finalizado ou removido.");
   return ready;
+}
+
+export async function cleanupExpiredPendingMedia(now = new Date()) {
+  const expired = await db.select().from(mediaAssets).where(and(eq(mediaAssets.uploadStatus, "pending"), lt(mediaAssets.uploadExpiresAt, now))).limit(100);
+  const storage = getStorageProvider();
+  let deleted = 0;
+  for (const asset of expired) {
+    await storage.delete(asset.storageKey);
+    const removed = await db.delete(mediaAssets).where(and(eq(mediaAssets.id, asset.id), eq(mediaAssets.uploadStatus, "pending"), lt(mediaAssets.uploadExpiresAt, now))).returning({ id: mediaAssets.id });
+    deleted += removed.length;
+  }
+  return deleted;
 }
 
 function snapshotReferencesAsset(snapshot: unknown, assetId: string) {
