@@ -53,12 +53,37 @@ function MediaAttachment({ value, imageOnly = false, onChange }: { value?: Media
   const [externalUrl, setExternalUrl] = useState("");
   const [externalKind, setExternalKind] = useState<"image" | "audio">("image");
   async function upload(file?: File) {
-    if (!file) return; setUploading(true); setError("");
-    const data = new FormData(); data.set("file", file);
-    const response = await fetch("/api/media", { method: "POST", body: data });
-    if (response.ok) { const asset = await response.json() as { id: string; kind: "image" | "audio"; filename: string }; if (imageOnly && asset.kind !== "image") setError("Selecione uma imagem PNG, JPG ou WebP."); else onChange({ assetId: asset.id, kind: asset.kind, filename: asset.filename }); }
-    else { const result = await response.json().catch(() => ({})) as { error?: string }; setError(result.error ?? "Não foi possível enviar o arquivo."); }
-    setUploading(false);
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setError("O arquivo pode ter no máximo 5 MiB."); return; }
+    if (imageOnly && !["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Selecione uma imagem PNG, JPG ou WebP."); return; }
+    setUploading(true); setError("");
+    try {
+      const preparedResponse = await fetch("/api/media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, mimeType: file.type, byteSize: file.size }),
+      });
+      if (preparedResponse.status === 501) {
+        const data = new FormData(); data.set("file", file);
+        const localResponse = await fetch("/api/media", { method: "POST", body: data });
+        if (!localResponse.ok) { const result = await localResponse.json().catch(() => ({})) as { error?: string }; throw new Error(result.error ?? "Não foi possível enviar o arquivo."); }
+        const asset = await localResponse.json() as { id: string; kind: "image" | "audio"; filename: string };
+        onChange({ source: "stored", assetId: asset.id, kind: asset.kind, filename: asset.filename });
+        return;
+      }
+      if (!preparedResponse.ok) { const result = await preparedResponse.json().catch(() => ({})) as { error?: string }; throw new Error(result.error ?? "Não foi possível autorizar o upload."); }
+      const prepared = await preparedResponse.json() as { id: string; uploadUrl: string; uploadHeaders: Record<string, string> };
+      const uploadedResponse = await fetch(prepared.uploadUrl, { method: "PUT", headers: prepared.uploadHeaders, body: file });
+      if (!uploadedResponse.ok) throw new Error("O bucket recusou o upload direto. Confira CORS, tamanho e tipo.");
+      const completedResponse = await fetch(`/api/media/${prepared.id}/complete`, { method: "POST" });
+      if (!completedResponse.ok) { const result = await completedResponse.json().catch(() => ({})) as { error?: string }; throw new Error(result.error ?? "Não foi possível validar o arquivo enviado."); }
+      const asset = await completedResponse.json() as { id: string; kind: "image" | "audio"; filename: string };
+      onChange({ source: "stored", assetId: asset.id, kind: asset.kind, filename: asset.filename });
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Não foi possível enviar o arquivo.");
+    } finally {
+      setUploading(false);
+    }
   }
   function addExternal() {
     setError("");

@@ -18,6 +18,7 @@ export const userRoleEnum = pgEnum("user_role", ["USER", "ADMIN"]);
 export const activityVisibilityEnum = pgEnum("activity_visibility", ["private", "unlisted", "public"]);
 export const themeKindEnum = pgEnum("theme_kind", ["system", "user"]);
 export const mediaKindEnum = pgEnum("media_kind", ["image", "audio"]);
+export const mediaUploadStatusEnum = pgEnum("media_upload_status", ["pending", "ready"]);
 export const sessionStatusEnum = pgEnum("session_status", ["created", "active", "paused", "finished"]);
 export const supportTicketCategoryEnum = pgEnum("support_ticket_category", ["question", "suggestion", "technical", "other"]);
 export const supportTicketStatusEnum = pgEnum("support_ticket_status", ["open", "answered", "closed"]);
@@ -151,9 +152,15 @@ export const mediaAssets = pgTable(
     mimeType: text("mime_type").notNull(),
     byteSize: integer("byte_size").notNull(),
     storageKey: text("storage_key").notNull().unique(),
+    uploadStatus: mediaUploadStatusEnum("upload_status").notNull().default("ready"),
+    uploadExpiresAt: timestamp("upload_expires_at", { withTimezone: true }),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("media_assets_owner_idx").on(table.ownerId)],
+  (table) => [
+    index("media_assets_owner_idx").on(table.ownerId),
+    index("media_assets_pending_expiry_idx").on(table.uploadStatus, table.uploadExpiresAt),
+  ],
 );
 
 export const favorites = pgTable(

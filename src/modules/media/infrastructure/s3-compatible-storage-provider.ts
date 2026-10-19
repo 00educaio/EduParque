@@ -1,4 +1,5 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { PutObjectInput, StorageProvider, StoredObject } from "../domain/storage-provider";
 
 interface S3StorageOptions {
@@ -39,6 +40,22 @@ export class S3CompatibleStorageProvider implements StorageProvider {
     };
   }
 
+  async getPrefix(key: string, maximumBytes: number): Promise<Uint8Array> {
+    const result = await this.client.send(new GetObjectCommand({ Bucket: this.options.bucket, Key: key, Range: `bytes=0-${Math.max(0, maximumBytes - 1)}` }));
+    if (!result.Body) throw new Error("Objeto nao encontrado no storage.");
+    return result.Body.transformToByteArray();
+  }
+
+  async head(key: string) {
+    const result = await this.client.send(new HeadObjectCommand({ Bucket: this.options.bucket, Key: key }));
+    if (result.ContentLength === undefined) throw new Error("O storage nao informou o tamanho do objeto.");
+    return {
+      contentType: result.ContentType ?? "application/octet-stream",
+      contentLength: result.ContentLength,
+      metadata: result.Metadata,
+    };
+  }
+
   async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.options.bucket, Key: key }));
   }
@@ -47,5 +64,21 @@ export class S3CompatibleStorageProvider implements StorageProvider {
     const encodedKey = key.split("/").map(encodeURIComponent).join("/");
     if (this.options.endpoint) return `${this.options.endpoint.replace(/\/$/, "")}/${this.options.bucket}/${encodedKey}`;
     return `https://${this.options.bucket}.s3.${this.options.region}.amazonaws.com/${encodedKey}`;
+  }
+
+  async createPresignedPutUrl(input: { key: string; contentType: string; contentLength: number; expiresInSeconds: number; metadata?: Record<string, string> }) {
+    const command = new PutObjectCommand({
+      Bucket: this.options.bucket,
+      Key: input.key,
+      ContentType: input.contentType,
+      ContentLength: input.contentLength,
+      Metadata: input.metadata,
+      IfNoneMatch: "*",
+    });
+    return getSignedUrl(this.client, command, { expiresIn: input.expiresInSeconds });
+  }
+
+  async createPresignedGetUrl(key: string, expiresInSeconds: number) {
+    return getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.options.bucket, Key: key }), { expiresIn: expiresInSeconds });
   }
 }

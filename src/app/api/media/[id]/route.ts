@@ -9,7 +9,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const session = await auth();
     const user = session?.user ? assertUser(session.user) : undefined;
     const { id } = await context.params;
-    const { asset, object } = await getReadableMedia(id, user?.id);
+    const { asset, storage, readUrl } = await getReadableMedia(id, user?.id);
+    if (readUrl) return NextResponse.redirect(readUrl, { status: 307, headers: { "Cache-Control": "private, no-store" } });
+    const object = await storage.get(asset.storageKey);
     const body = new Uint8Array(object.body).buffer;
     return new Response(body, {
       headers: {

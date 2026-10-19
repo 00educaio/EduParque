@@ -31,6 +31,16 @@ export class LocalStorageProvider implements StorageProvider {
     return { body, contentType: metadata.contentType, contentLength: body.byteLength };
   }
 
+  async getPrefix(key: string, maximumBytes: number): Promise<Uint8Array> {
+    const object = await this.get(key);
+    return object.body.slice(0, maximumBytes);
+  }
+
+  async head(key: string) {
+    const object = await this.get(key);
+    return { contentType: object.contentType, contentLength: object.contentLength ?? object.body.byteLength };
+  }
+
   async delete(key: string): Promise<void> {
     const target = this.resolveKey(key);
     await Promise.all([unlink(target).catch(() => undefined), unlink(`${target}.meta`).catch(() => undefined)]);
