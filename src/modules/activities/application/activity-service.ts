@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, isNull, max, or, sql } from "drizzle-orm";
-import { db } from "@/shared/infrastructure/database/client";
+import { getDatabase } from "@/shared/infrastructure/database/client";
 import { activities, activityRevisions, favorites, presentations, themes } from "@/shared/infrastructure/database/schema";
 import { activityContentSchema } from "@/shared/domain/content-blocks";
 import { activityDraftInputSchema, activityRevisionSnapshotSchema, presentationInputSchema, type ActivityDraftInput, type ActivityRevisionSnapshot } from "@/modules/activities/domain/activity-schemas";
@@ -23,6 +23,7 @@ function slugify(title: string) {
 }
 
 export async function createActivity(ownerId: string, title = "Atividade sem titulo") {
+  const { db } = getDatabase();
   const template = getGameTemplate("quiz");
   return db.transaction(async (tx) => {
     const [activity] = await tx.insert(activities).values({ ownerId, title, slug: slugify(title), draftContent: [] }).returning();
@@ -38,6 +39,7 @@ export async function createActivity(ownerId: string, title = "Atividade sem tit
 }
 
 export async function getOwnedActivity(activityId: string, ownerId: string) {
+  const { db } = getDatabase();
   const activity = await db.query.activities.findFirst({ where: and(eq(activities.id, activityId), eq(activities.ownerId, ownerId), isNull(activities.deletedAt)) });
   if (!activity) throw new ActivityNotFoundError();
   const activityPresentations = await db.select().from(presentations).where(eq(presentations.activityId, activity.id)).orderBy(presentations.createdAt);
@@ -45,10 +47,12 @@ export async function getOwnedActivity(activityId: string, ownerId: string) {
 }
 
 export async function listOwnedActivities(ownerId: string) {
+  const { db } = getDatabase();
   return db.select().from(activities).where(and(eq(activities.ownerId, ownerId), isNull(activities.deletedAt))).orderBy(desc(activities.updatedAt));
 }
 
 export async function updateDraft(activityId: string, ownerId: string, input: unknown) {
+  const { db } = getDatabase();
   const parsed = activityDraftInputSchema.parse(input);
   const activity = await getOwnedActivity(activityId, ownerId);
   if (parsed.defaultPresentationId && !activity.presentations.some((item) => item.id === parsed.defaultPresentationId)) {
@@ -62,6 +66,7 @@ export async function updateDraft(activityId: string, ownerId: string, input: un
 }
 
 export async function savePresentation(activityId: string, ownerId: string, input: unknown) {
+  const { db } = getDatabase();
   const parsed = presentationInputSchema.parse(input);
   await getOwnedActivity(activityId, ownerId);
   getGameTemplate(parsed.templateKey);
@@ -87,6 +92,7 @@ export async function savePresentation(activityId: string, ownerId: string, inpu
 }
 
 export async function removePresentation(activityId: string, presentationId: string, ownerId: string) {
+  const { db } = getDatabase();
   const activity = await getOwnedActivity(activityId, ownerId);
   if (activity.presentations.length <= 1) throw new InvalidActivityError("A atividade precisa manter ao menos uma apresentacao.");
   await db.transaction(async (tx) => {
@@ -100,11 +106,13 @@ export async function removePresentation(activityId: string, presentationId: str
 }
 
 async function getBaseTheme(ownerId: string) {
+  const { db } = getDatabase();
   const userTheme = await db.query.themes.findFirst({ where: and(eq(themes.ownerId, ownerId), eq(themes.kind, "user")), orderBy: [desc(themes.updatedAt)] });
   return userTheme?.values ?? defaultSystemTheme;
 }
 
 export async function publishActivity(activityId: string, ownerId: string) {
+  const { db } = getDatabase();
   const activity = await getOwnedActivity(activityId, ownerId);
   if (!activity.presentations.length || !activity.defaultPresentationId) throw new InvalidActivityError("Adicione uma apresentacao padrao antes de publicar.");
   if (!activity.presentations.some((item) => item.id === activity.defaultPresentationId)) throw new InvalidActivityError("Selecione uma apresentacao padrao valida.");
@@ -127,16 +135,19 @@ export async function publishActivity(activityId: string, ownerId: string) {
 }
 
 export async function unpublishActivity(activityId: string, ownerId: string) {
+  const { db } = getDatabase();
   await getOwnedActivity(activityId, ownerId);
   await db.update(activities).set({ currentPublishedRevision: null, updatedAt: new Date() }).where(eq(activities.id, activityId));
 }
 
 export async function deleteActivity(activityId: string, ownerId: string) {
+  const { db } = getDatabase();
   await getOwnedActivity(activityId, ownerId);
   await db.update(activities).set({ deletedAt: new Date(), currentPublishedRevision: null, updatedAt: new Date() }).where(eq(activities.id, activityId));
 }
 
 async function loadPublished(activityId: string) {
+  const { db } = getDatabase();
   const activity = await db.query.activities.findFirst({ where: and(eq(activities.id, activityId), isNull(activities.deletedAt)) });
   if (!activity?.currentPublishedRevision) throw new ActivityNotFoundError("Esta atividade nao esta publicada.");
   const revision = await db.query.activityRevisions.findFirst({ where: and(eq(activityRevisions.activityId, activityId), eq(activityRevisions.revision, activity.currentPublishedRevision)) });
@@ -145,6 +156,7 @@ async function loadPublished(activityId: string) {
 }
 
 export async function remixActivity(activityId: string, ownerId: string) {
+  const { db } = getDatabase();
   const source = await loadPublished(activityId);
   if (source.snapshot.visibility === "private") throw new ActivityNotFoundError();
   return db.transaction(async (tx) => {
@@ -165,6 +177,7 @@ export async function remixActivity(activityId: string, ownerId: string) {
 }
 
 export async function getPublicActivityBySlug(slug: string, viewerId?: string) {
+  const { db } = getDatabase();
   const activity = await db.query.activities.findFirst({ where: and(eq(activities.slug, slug), isNull(activities.deletedAt)) });
   if (!activity?.currentPublishedRevision) throw new ActivityNotFoundError();
   const loaded = await loadPublished(activity.id);
@@ -173,6 +186,7 @@ export async function getPublicActivityBySlug(slug: string, viewerId?: string) {
 }
 
 export async function listPublicActivities(search = "", userId?: string) {
+  const { db } = getDatabase();
   const term = search.trim();
   const rows = await db.select({ activity: activities, revision: activityRevisions })
     .from(activities)
@@ -191,6 +205,7 @@ export async function listPublicActivities(search = "", userId?: string) {
 }
 
 export async function setFavorite(activityId: string, userId: string, enabled: boolean) {
+  const { db } = getDatabase();
   const published = await loadPublished(activityId);
   if (published.snapshot.visibility !== "public") throw new ActivityNotFoundError();
   if (enabled) await db.insert(favorites).values({ activityId, userId }).onConflictDoNothing();
@@ -198,6 +213,7 @@ export async function setFavorite(activityId: string, userId: string, enabled: b
 }
 
 export async function isActivityFavorite(activityId: string, userId?: string) {
+  const { db } = getDatabase();
   if (!userId) return false;
   return Boolean(await db.query.favorites.findFirst({ where: and(eq(favorites.activityId, activityId), eq(favorites.userId, userId)) }));
 }

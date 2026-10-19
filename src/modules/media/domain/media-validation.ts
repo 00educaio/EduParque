@@ -3,8 +3,7 @@ import { fileTypeFromBuffer } from "file-type";
 const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const AUDIO_MIME_TYPES = new Set(["audio/mpeg", "audio/ogg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/flac"]);
 
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+export const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
 
 export class InvalidMediaError extends Error {
   readonly status = 400;
@@ -32,12 +31,12 @@ export async function validateMedia(buffer: Uint8Array, declaredMimeType: string
   if (detectedMime !== declaredMime) throw new InvalidMediaError("O conteudo do arquivo nao corresponde ao MIME informado.");
 
   if (IMAGE_MIME_TYPES.has(detectedMime)) {
-    if (buffer.byteLength > MAX_IMAGE_BYTES) throw new InvalidMediaError("Imagens podem ter no maximo 10 MB.");
+    if (buffer.byteLength > MAX_MEDIA_BYTES) throw new InvalidMediaError("Arquivos podem ter no maximo 5 MB.");
     return { kind: "image", mimeType: detectedMime, extension: detected.ext };
   }
 
   if (AUDIO_MIME_TYPES.has(detectedMime)) {
-    if (buffer.byteLength > MAX_AUDIO_BYTES) throw new InvalidMediaError("Audios podem ter no maximo 25 MB.");
+    if (buffer.byteLength > MAX_MEDIA_BYTES) throw new InvalidMediaError("Arquivos podem ter no maximo 5 MB.");
     return { kind: "audio", mimeType: detectedMime, extension: detected.ext };
   }
 

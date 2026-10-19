@@ -1,10 +1,12 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { eq, inArray } from "drizzle-orm";
-import { db, sql } from "@/shared/infrastructure/database/client";
+import { createDatabase } from "@/shared/infrastructure/database/client";
+import { getEnv } from "@/shared/infrastructure/config/env";
 import { activities, activityRevisions, users } from "@/shared/infrastructure/database/schema";
 import { createActivity, getOwnedActivity, getPublicActivityBySlug, listPublicActivities, publishActivity, remixActivity, unpublishActivity, updateDraft } from "./activity-service";
 
 const databaseDescribe = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
+const { db, sql } = createDatabase(getEnv().DATABASE_URL);
 
 databaseDescribe("ActivityService com PostgreSQL", () => {
   const userIds: string[] = [];

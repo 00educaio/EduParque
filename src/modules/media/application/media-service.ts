@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { db } from "@/shared/infrastructure/database/client";
+import { getDatabase } from "@/shared/infrastructure/database/client";
 import { activities, activityRevisions, mediaAssets } from "@/shared/infrastructure/database/schema";
 import { activityRevisionSnapshotSchema } from "@/modules/activities/domain/activity-schemas";
-import { ForbiddenError } from "@/modules/auth/application/authorization";
+import { ForbiddenError } from "@/modules/auth/application/policies";
 import { validateMedia } from "../domain/media-validation";
 import { getStorageProvider } from "../infrastructure/storage";
 
@@ -15,8 +15,9 @@ interface UploadMediaInput {
 }
 
 export async function uploadMedia(input: UploadMediaInput) {
+  const { db } = getDatabase();
   const validated = await validateMedia(input.body, input.declaredMimeType);
-  const storage = getStorageProvider();
+  const storage = await getStorageProvider();
   const key = `${input.ownerId}/${randomUUID()}.${validated.extension}`;
 
   await storage.put({ key, body: input.body, contentType: validated.mimeType });
@@ -41,9 +42,23 @@ export async function uploadMedia(input: UploadMediaInput) {
 }
 
 export async function getOwnedMedia(assetId: string, ownerId: string) {
+  const { db } = getDatabase();
   const [asset] = await db.select().from(mediaAssets).where(and(eq(mediaAssets.id, assetId), eq(mediaAssets.ownerId, ownerId))).limit(1);
   if (!asset) throw new ForbiddenError("Midia nao encontrada ou sem acesso.");
-  return { asset, object: await getStorageProvider().get(asset.storageKey) };
+  return { asset, object: await (await getStorageProvider()).get(asset.storageKey) };
+}
+
+export async function deleteOwnedMedia(assetId: string, ownerId: string) {
+  const { db } = getDatabase();
+  const [asset] = await db
+    .select({ id: mediaAssets.id, storageKey: mediaAssets.storageKey })
+    .from(mediaAssets)
+    .where(and(eq(mediaAssets.id, assetId), eq(mediaAssets.ownerId, ownerId)))
+    .limit(1);
+  if (!asset) throw new ForbiddenError("Midia nao encontrada ou sem acesso.");
+
+  await (await getStorageProvider()).delete(asset.storageKey);
+  await db.delete(mediaAssets).where(and(eq(mediaAssets.id, asset.id), eq(mediaAssets.ownerId, ownerId)));
 }
 
 function snapshotReferencesAsset(snapshot: unknown, assetId: string) {
@@ -58,6 +73,7 @@ function snapshotReferencesAsset(snapshot: unknown, assetId: string) {
 }
 
 export async function getReadableMedia(assetId: string, viewerId?: string) {
+  const { db } = getDatabase();
   const [asset] = await db.select().from(mediaAssets).where(eq(mediaAssets.id, assetId)).limit(1);
   if (!asset) throw new ForbiddenError("Midia nao encontrada ou sem acesso.");
   if (asset.ownerId !== viewerId) {
@@ -67,5 +83,5 @@ export async function getReadableMedia(assetId: string, viewerId?: string) {
       .where(and(isNull(activities.deletedAt), sql`${activityRevisions.snapshot}::text like ${`%${assetId}%`}`));
     if (!candidates.some((candidate) => snapshotReferencesAsset(candidate.snapshot, assetId))) throw new ForbiddenError("Midia nao encontrada ou sem acesso.");
   }
-  return { asset, object: await getStorageProvider().get(asset.storageKey) };
+  return { asset, object: await (await getStorageProvider()).get(asset.storageKey) };
 }

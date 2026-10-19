@@ -7,14 +7,70 @@
     "nodejs_compat",
     "global_fetch_strictly_public"
   ],
+  "workers_dev": true,
+  "preview_urls": true,
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "redact_query_string": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "vars": {
+    "AUTH_TRUST_HOST": "true",
+    "STORAGE_DRIVER": "postgres"
+  },
+  "secrets": {
+    "required": [
+      "AUTH_SECRET",
+      "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
+    ]
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "3570a5328f384370b5f516e921bf33a5"
+    }
+  ],
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
       "service": "eduparque"
     }
-  ]
+  ],
+  "previews": {
+    "vars": {
+      "AUTH_TRUST_HOST": "true",
+      "STORAGE_DRIVER": "postgres"
+    },
+    "hyperdrive": [
+      {
+        "binding": "HYPERDRIVE",
+        "id": "3570a5328f384370b5f516e921bf33a5"
+      }
+    ],
+    "observability": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "redact_query_string": true,
+      "logs": {
+        "enabled": true,
+        "head_sampling_rate": 1
+      },
+      "traces": {
+        "enabled": true,
+        "head_sampling_rate": 1
+      }
+    }
+  }
 }

@@ -5,9 +5,9 @@
 - [ ] Confirmar que o protótipo será **teacher-led**: somente o professor opera a aplicação.
 - [ ] Confirmar que não haverá alunos conectados simultaneamente em dispositivos próprios.
 - [ ] Aceitar o *scale-to-zero* do Neon gratuito e a possível demora no primeiro acesso após inatividade.
-- [ ] Usar o PostgreSQL também para os arquivos do protótipo, sem R2, S3 ou outro serviço de storage.
-- [ ] Manter o limite atual de 3 MB para imagens de equipes e definir um limite máximo de 5 MB para os demais arquivos do protótipo.
-- [ ] Definir uma cota total de arquivos compatível com o plano gratuito do banco.
+- [x] Usar o PostgreSQL também para os arquivos do protótipo, sem R2, S3 ou outro serviço de storage.
+- [x] Manter o limite atual de 3 MB para imagens de equipes e definir um limite máximo de 5 MB para os demais arquivos do protótipo.
+- [x] Definir uma cota total de arquivos compatível com o plano gratuito do banco: 250 MiB.
 
 ## 1. Preparar contas e credenciais
 
@@ -42,93 +42,103 @@
 - [x] Verificar se `postgres` precisa permanecer em `serverExternalPackages` para o runtime do Worker. Confirmado: deve permanecer empacotado para usar sua exportação `workerd`.
 - [x] Executar `lint`, `typecheck`, testes e o build OpenNext.
 
-**Estado do preview:** a página inicial responde `200` no runtime local do Worker. A rota `/api/health` ainda responde `503` porque a conexão TLS direta do Neon usa uma opção não implementada pelo `workerd`; a troca para Hyperdrive faz parte da etapa 4.
+**Estado do preview:** a página inicial e a rota `/api/health` respondem `200` no runtime local do Worker com o binding Hyperdrive emulado.
 
 **Concluído quando:** a aplicação abre no preview local do Worker sem erro de runtime ou importação de módulos Node incompatíveis.
 
 ## 4. Adaptar PostgreSQL e Hyperdrive
 
-- [ ] Criar a configuração Hyperdrive apontando para o banco Neon.
-- [ ] Adicionar o binding Hyperdrive ao `wrangler.jsonc`.
-- [ ] Refatorar `src/shared/infrastructure/database/client.ts` para criar o cliente por requisição no Worker.
-- [ ] Remover `prepare: false` da configuração usada com Hyperdrive.
-- [ ] Eliminar o pool global no runtime Cloudflare.
-- [ ] Preservar um caminho simples para desenvolvimento local e execução das migrações fora do Worker.
-- [ ] Atualizar os serviços e rotas que importam `db` ou `sql` globalmente para receber ou obter a conexão da requisição.
-- [ ] Definir limites conservadores de conexão para não exceder o plano gratuito.
-- [ ] Rodar a suíte de testes de integração com um banco temporário.
-- [ ] Criar o schema vazio no Neon usando as migrações existentes.
-- [ ] Executar uma leitura e uma escrita reais através do Hyperdrive em preview.
+- [x] Criar a configuração Hyperdrive apontando para o banco Neon.
+- [x] Adicionar o binding Hyperdrive ao `wrangler.jsonc`.
+- [x] Refatorar `src/shared/infrastructure/database/client.ts` para criar o cliente por requisição no Worker.
+- [x] Remover `prepare: false` da configuração usada com Hyperdrive.
+- [x] Eliminar o pool global no runtime Cloudflare.
+- [x] Preservar um caminho simples para desenvolvimento local e execução das migrações fora do Worker.
+- [x] Atualizar os serviços e rotas que importam `db` ou `sql` globalmente para receber ou obter a conexão da requisição.
+- [x] Definir limites conservadores de conexão para não exceder o plano gratuito.
+- [x] Rodar a suíte de testes de integração com um banco temporário.
+- [x] Criar o schema vazio no Neon usando as migrações existentes.
+- [x] Executar uma leitura e uma escrita reais através do Hyperdrive em preview.
+
+**Estado do preview remoto:** leitura e escrita transacional descartável concluídas através do Hyperdrive real; ambas responderam `200`, sem persistir dados de teste.
 
 **Concluído quando:** autenticação, CRUD de atividades e sessões funcionam pelo Hyperdrive sem cliente ou pool global.
 
 ## 5. Armazenar os arquivos no PostgreSQL
 
-- [ ] Criar uma migração para uma tabela de objetos binários contendo, no mínimo: chave, conteúdo `bytea`, MIME type, tamanho e datas de criação/expiração.
-- [ ] Manter metadados funcionais em `media_assets` e relacioná-los à chave do objeto armazenado.
-- [ ] Implementar um `PostgresStorageProvider` compatível com a interface `StorageProvider` atual.
-- [ ] Adicionar o driver `postgres` à seleção feita em `src/modules/media/infrastructure/storage.ts`.
-- [ ] Criar ou adaptar uma rota autenticada para servir arquivos salvos no banco com `Content-Type`, `Content-Length` e cache adequados.
-- [ ] Substituir `getPublicUrl()` por uma URL da própria aplicação para os objetos do banco.
-- [ ] Reutilizar a validação atual de tipo real do arquivo e bloquear arquivos acima do limite definido.
-- [ ] Substituir `src/modules/game-sessions/infrastructure/temporary-team-image-store.ts` por armazenamento no PostgreSQL.
-- [ ] Remover a dependência de `node:fs`, `node:os`, `/tmp` e caminhos locais das rotas executadas no Worker.
-- [ ] Excluir imagens temporárias quando a sessão terminar.
-- [ ] Implementar limpeza oportunista de objetos expirados, sem depender de um processo permanente.
-- [ ] Adicionar testes de salvar, ler, substituir, apagar, expirar e rejeitar arquivos inválidos ou grandes.
-- [ ] Verificar o consumo do banco após inserir arquivos representativos do protótipo.
+- [x] Criar uma migração para uma tabela de objetos binários contendo, no mínimo: chave, conteúdo `bytea`, MIME type, tamanho e datas de criação/expiração.
+- [x] Manter metadados funcionais em `media_assets` e relacioná-los à chave do objeto armazenado.
+- [x] Implementar um `PostgresStorageProvider` compatível com a interface `StorageProvider` atual.
+- [x] Adicionar o driver `postgres` à seleção feita em `src/modules/media/infrastructure/storage.ts`.
+- [x] Criar ou adaptar uma rota autenticada para servir arquivos salvos no banco com `Content-Type`, `Content-Length` e cache adequados.
+- [x] Substituir `getPublicUrl()` por uma URL da própria aplicação para os objetos do banco.
+- [x] Reutilizar a validação atual de tipo real do arquivo e bloquear arquivos acima do limite definido.
+- [x] Substituir `src/modules/game-sessions/infrastructure/temporary-team-image-store.ts` por armazenamento no PostgreSQL.
+- [x] Remover a dependência de `node:fs`, `node:os`, `/tmp` e caminhos locais das rotas executadas no Worker.
+- [x] Excluir imagens temporárias quando a sessão terminar.
+- [x] Implementar limpeza oportunista de objetos expirados, sem depender de um processo permanente.
+- [x] Adicionar testes de salvar, ler, substituir, apagar, expirar e rejeitar arquivos inválidos ou grandes.
+- [x] Verificar o consumo do banco após inserir arquivos representativos do protótipo.
+
+**Estado da validação:** 8 MiB de arquivos representativos ocuparam aproximadamente 8,38 MiB fisicamente. O preview remoto persistiu e releu um objeto após reinício; o objeto diagnóstico foi removido ao final.
 
 **Concluído quando:** imagens e demais mídias continuam disponíveis após reiniciar o preview e nenhum fluxo depende do filesystem local.
 
 ## 6. Configurar autenticação de produção
 
-- [ ] Definir o login tradicional com e-mail ou nome de usuário e senha.
-- [ ] Criar uma migração para armazenar somente o hash da senha e os dados necessários de bloqueio/rotação; nunca armazenar a senha original.
+- [x] Definir o login tradicional com e-mail ou nome de usuário e senha.
+- [x] Criar uma migração para armazenar somente o hash da senha e os dados necessários de bloqueio/rotação; nunca armazenar a senha original.
 - [ ] Escolher uma função de derivação de senha segura e compatível com Cloudflare Workers e medir seu custo de CPU no plano gratuito.
-- [ ] Habilitar o provider de credenciais do Auth.js em produção com validação exclusivamente no servidor.
-- [ ] Remover qualquer senha fixa, atalho ou bypass usado pelo login de desenvolvimento.
-- [ ] Criar um comando administrativo para cadastrar a primeira conta e redefinir sua senha sem expor o valor no histórico do shell ou no Git.
-- [ ] Manter o cadastro público desabilitado; novas contas de professor devem ser criadas administrativamente.
-- [ ] Usar mensagens de erro genéricas para não revelar se um usuário existe.
-- [ ] Implementar limitação de tentativas e bloqueio temporário de login usando o PostgreSQL.
-- [ ] Testar senha correta, senha incorreta, usuário inexistente, bloqueio temporário e reativação da conta.
-- [ ] Configurar `AUTH_SECRET` e `AUTH_TRUST_HOST` como segredos do Worker.
-- [ ] Confirmar atributos `Secure`, `HttpOnly` e `SameSite` dos cookies de autenticação e controle de sessão.
-- [ ] Não habilitar providers externos nem login por link de e-mail/Nodemailer nesta primeira versão.
-- [ ] Documentar o procedimento administrativo de troca ou recuperação de senha.
+- [x] Habilitar o provider de credenciais do Auth.js em produção com validação exclusivamente no servidor.
+- [x] Remover qualquer senha fixa, atalho ou bypass usado pelo login de desenvolvimento.
+- [x] Criar um comando administrativo para cadastrar a primeira conta e redefinir sua senha sem expor o valor no histórico do shell ou no Git.
+- [x] Manter o cadastro público desabilitado; novas contas de professor devem ser criadas administrativamente.
+- [x] Usar mensagens de erro genéricas para não revelar se um usuário existe.
+- [x] Implementar limitação de tentativas e bloqueio temporário de login usando o PostgreSQL.
+- [x] Testar senha correta, senha incorreta, usuário inexistente, bloqueio temporário e reativação da conta.
+- [x] Configurar `AUTH_SECRET` como segredo do Worker; `AUTH_TRUST_HOST=true` permanece como configuração pública versionada.
+- [x] Confirmar atributos `Secure`, `HttpOnly` e `SameSite` dos cookies de autenticação e controle de sessão.
+- [x] Não habilitar providers externos nem login por link de e-mail/Nodemailer nesta primeira versão.
+- [x] Documentar o procedimento administrativo de troca ou recuperação de senha.
 
 **Concluído quando:** o professor entra com usuário e senha, permanece autenticado e tentativas inválidas ou excessivas são bloqueadas com segurança.
 
+**Estado da validação:** a conta administrativa entrou pelo preview local do Worker usando o Hyperdrive/Neon, permaneceu autenticada ao navegar inclusive para `/admin/users`, e o cookie real apresentou `Secure`, `HttpOnly` e `SameSite=Lax`. O POST de login levou aproximadamente 2,66 s de tempo total com bcrypt custo 12 executado no PostgreSQL. A medição de CPU real e o cadastro remoto de `AUTH_SECRET` aguardam a primeira versão remota: o preview local não expõe CPU e `wrangler secret put` faria deploy imediato.
+
 ## 7. Configurar ambientes e segredos
 
-- [ ] Definir no Wrangler apenas configurações públicas e nomes de bindings.
-- [ ] Cadastrar segredos de preview e produção com `wrangler secret put`.
-- [ ] Incluir, conforme necessário: conexão do banco, `AUTH_SECRET` e chaves internas da aplicação.
-- [ ] Não cadastrar variáveis de S3/R2 no protótipo.
-- [ ] Configurar explicitamente o novo driver de storage PostgreSQL.
-- [ ] Conferir que nenhuma configuração de produção ativa bypasses ou credenciais fixas de desenvolvimento.
-- [ ] Executar uma varredura no diff e no histórico da branch para detectar segredos acidentalmente adicionados.
+- [x] Definir no Wrangler apenas configurações públicas e nomes de bindings.
+- [x] Cadastrar segredos de Preview e produção pelo Wrangler sem implantá-los antecipadamente.
+- [x] Incluir somente os segredos necessários: `AUTH_SECRET` e `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`; a conexão do Worker usa Hyperdrive.
+- [x] Não cadastrar variáveis de S3/R2 no protótipo.
+- [x] Configurar explicitamente o novo driver de storage PostgreSQL.
+- [x] Conferir que nenhuma configuração de produção ativa bypasses ou credenciais fixas de desenvolvimento.
+- [x] Executar uma varredura no diff e no histórico da branch para detectar segredos acidentalmente adicionados.
 
 **Concluído quando:** preview e produção recebem todas as configurações sem armazenar valores secretos no Git.
 
+**Estado remoto:** `AUTH_SECRET` e `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` existem com valores distintos na configuração-base de Previews e na versão de produção não implantada. A versão `a373c967-4049-424d-a0c6-12694a828ee0` está pronta para futura implantação, mas nenhum tráfego de produção foi direcionado a ela.
+
 ## 8. Validar o protótipo em preview
 
-- [ ] Executar `npm run lint`.
-- [ ] Executar `npm run typecheck`.
-- [ ] Executar `npm test`.
-- [ ] Executar os testes de integração com PostgreSQL.
-- [ ] Gerar o build OpenNext e iniciar o preview com Wrangler.
-- [ ] Testar login, logout e persistência da sessão.
-- [ ] Criar, editar, revisar, publicar e excluir uma atividade.
-- [ ] Enviar, visualizar e excluir uma imagem e um áudio dentro dos limites.
-- [ ] Criar uma sessão de jogo, configurar equipes, enviar imagens e percorrer a sessão até o encerramento.
-- [ ] Confirmar que cronômetros continuam corretos após atualizar a página.
-- [ ] Confirmar que arquivos temporários são eliminados ao encerrar ou expirar uma sessão.
+- [x] Executar `npm run lint`.
+- [x] Executar `npm run typecheck`.
+- [x] Executar `npm test`.
+- [x] Executar os testes de integração com PostgreSQL.
+- [x] Gerar o build OpenNext e iniciar o preview com Wrangler.
+- [x] Testar login, logout e persistência da sessão.
+- [x] Criar, editar, revisar, publicar e excluir uma atividade.
+- [x] Enviar, visualizar e excluir uma imagem e um áudio dentro dos limites.
+- [x] Criar uma sessão de jogo, configurar equipes, enviar imagens e percorrer a sessão até o encerramento.
+- [x] Confirmar que cronômetros continuam corretos após atualizar a página.
+- [x] Confirmar que arquivos temporários são eliminados ao encerrar ou expirar uma sessão.
 - [ ] Simular o Neon adormecido e medir o primeiro acesso após a reativação.
 - [ ] Executar uma sessão completa de 50 minutos no fluxo real do professor.
 - [ ] Verificar nos logs erros, tempo de CPU, quantidade de requisições e consultas ao banco.
 
 **Concluído quando:** o fluxo completo do professor funciona em preview e o primeiro acesso após inatividade tem atraso aceitável para o protótipo.
+
+**Estado da validação remota:** o Preview isolado concluiu autenticação, CRUD e publicação de atividade, upload/leitura/exclusão de PNG e WAV, sessão com duas equipes, pontuação, navegação, cronômetro restaurado após recarregar e limpeza automática da imagem temporária. Em execuções repetidas, o Worker passou a retornar erro `1102` inclusive em `/api/health`: o Next.js com renderização no servidor excede de forma intermitente o limite de 10 ms de CPU por requisição do Workers Free. É necessário ativar o Workers Paid e gerar um novo Preview antes da sessão manual de 50 minutos e da medição final de logs/CPU.
 
 ## 9. Publicar
 

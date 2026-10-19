@@ -2,8 +2,11 @@ import { and, eq } from "drizzle-orm";
 import { createActivity, publishActivity, savePresentation, updateDraft } from "@/modules/activities/application/activity-service";
 import { getGameTemplate } from "@/modules/game-templates";
 import { defaultSystemTheme } from "@/modules/themes/domain/theme-values";
-import { db, sql } from "./client";
+import { getEnv } from "@/shared/infrastructure/config/env";
+import { createDatabase } from "./client";
 import { activities, presentations, themes, users } from "./schema";
+
+const { db, sql } = createDatabase(getEnv().DATABASE_URL);
 
 const DEMO_EMAIL = "demo@eduparque.local";
 

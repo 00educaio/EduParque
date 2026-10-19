@@ -1,6 +1,6 @@
 import "server-only";
 import { and, asc, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
-import { db } from "@/shared/infrastructure/database/client";
+import { getDatabase } from "@/shared/infrastructure/database/client";
 import { activities, users } from "@/shared/infrastructure/database/schema";
 import { ForbiddenError } from "@/modules/auth/application/policies";
 
@@ -10,6 +10,7 @@ export class AdminResourceNotFoundError extends Error {
 }
 
 export async function listUsers(search = "") {
+  const { db } = getDatabase();
   const term = search.trim().slice(0, 120);
   return db.select({
     id: users.id, name: users.name, email: users.email, role: users.role, createdAt: users.createdAt,
@@ -20,6 +21,7 @@ export async function listUsers(search = "") {
 }
 
 export async function setUserRole(targetId: string, role: "USER" | "ADMIN", actorId: string) {
+  const { db } = getDatabase();
   if (targetId === actorId && role !== "ADMIN") throw new ForbiddenError("Voce nao pode remover seu proprio acesso administrativo.");
   const [updated] = await db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, targetId)).returning({ id: users.id, role: users.role });
   if (!updated) throw new AdminResourceNotFoundError("Usuario nao encontrado.");
@@ -27,6 +29,7 @@ export async function setUserRole(targetId: string, role: "USER" | "ADMIN", acto
 }
 
 export async function removeUser(targetId: string, actorId: string) {
+  const { db } = getDatabase();
   if (targetId === actorId) throw new ForbiddenError("Voce nao pode remover sua propria conta pelo painel.");
   const [target] = await db.select({ role: users.role }).from(users).where(eq(users.id, targetId)).limit(1);
   if (!target) throw new AdminResourceNotFoundError("Usuario nao encontrado.");
@@ -35,6 +38,7 @@ export async function removeUser(targetId: string, actorId: string) {
 }
 
 export async function listActivities(search = "") {
+  const { db } = getDatabase();
   const term = search.trim().slice(0, 120);
   return db.select({
     id: activities.id, title: activities.title, slug: activities.slug, visibility: activities.visibility,
@@ -46,6 +50,7 @@ export async function listActivities(search = "") {
 }
 
 export async function setActivityHidden(activityId: string, hidden: boolean) {
+  const { db } = getDatabase();
   const [updated] = await db.update(activities).set({
     deletedAt: hidden ? new Date() : null,
     updatedAt: new Date(),

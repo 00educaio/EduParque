@@ -1,9 +1,10 @@
-import { sql } from "@/shared/infrastructure/database/client";
+import { getDatabase } from "@/shared/infrastructure/database/client";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    const { sql } = getDatabase();
     await sql`select 1`;
     return Response.json({ status: "ok" }, { headers: { "Cache-Control": "no-store" } });
   } catch {

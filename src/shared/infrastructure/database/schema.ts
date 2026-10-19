@@ -1,5 +1,6 @@
 import {
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -23,19 +24,45 @@ export const supportTicketCategoryEnum = pgEnum("support_ticket_category", ["que
 export const supportTicketStatusEnum = pgEnum("support_ticket_status", ["open", "answered", "closed"]);
 export const supportAuthorKindEnum = pgEnum("support_author_kind", ["teacher", "admin"]);
 
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => "bytea",
+  fromDriver: (value) => new Uint8Array(value),
+});
+
 export const users = pgTable(
   "users",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     name: text("name"),
     email: text("email").unique(),
+    username: text("username").unique(),
     emailVerified: timestamp("email_verified", { withTimezone: true, mode: "date" }),
     image: text("image"),
     role: userRoleEnum("role").notNull().default("USER"),
+    passwordHash: text("password_hash"),
+    passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }),
+    authVersion: integer("auth_version").notNull().default(0),
+    failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+    failedLoginWindowStartedAt: timestamp("failed_login_window_started_at", { withTimezone: true }),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("users_email_idx").on(table.email)],
+  (table) => [index("users_email_idx").on(table.email), index("users_username_idx").on(table.username)],
+);
+
+export const authLoginAttempts = pgTable(
+  "auth_login_attempts",
+  {
+    identifierHash: text("identifier_hash").primaryKey(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    failedAttempts: integer("failed_attempts").notNull().default(0),
+    windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("auth_login_attempts_user_idx").on(table.userId), index("auth_login_attempts_updated_idx").on(table.updatedAt)],
 );
 
 export const accounts = pgTable(
@@ -141,6 +168,20 @@ export const themes = pgTable(
   (table) => [index("themes_owner_idx").on(table.ownerId)],
 );
 
+export const storageObjects = pgTable(
+  "storage_objects",
+  {
+    key: text("key").primaryKey(),
+    content: bytea("content").notNull(),
+    mimeType: text("mime_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+  },
+  (table) => [index("storage_objects_expires_idx").on(table.expiresAt)],
+);
+
 export const mediaAssets = pgTable(
   "media_assets",
   {
@@ -150,7 +191,7 @@ export const mediaAssets = pgTable(
     filename: text("filename").notNull(),
     mimeType: text("mime_type").notNull(),
     byteSize: integer("byte_size").notNull(),
-    storageKey: text("storage_key").notNull().unique(),
+    storageKey: text("storage_key").notNull().unique().references(() => storageObjects.key, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("media_assets_owner_idx").on(table.ownerId)],
@@ -230,10 +271,12 @@ export const supportMessages = pgTable(
 );
 
 export type User = typeof users.$inferSelect;
+export type AuthLoginAttempt = typeof authLoginAttempts.$inferSelect;
 export type Activity = typeof activities.$inferSelect;
 export type ActivityRevision = typeof activityRevisions.$inferSelect;
 export type Presentation = typeof presentations.$inferSelect;
 export type Theme = typeof themes.$inferSelect;
+export type StorageObject = typeof storageObjects.$inferSelect;
 export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type Favorite = typeof favorites.$inferSelect;
 export type GameSession = typeof gameSessions.$inferSelect;

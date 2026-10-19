@@ -1,2 +1,9 @@
 # Seleciona os arquivos .env de desenvolvimento ao executar o Worker local.
 NEXTJS_ENV=development
+
+# Segredos locais fictícios. Use valores diferentes dos ambientes remotos.
+AUTH_SECRET=replace-with-a-random-secret-at-least-32-characters
+NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=replace-with-base64-aes-32-byte-key
+
+# Use a URL PostgreSQL direta (não pooled) somente no preview local.
+CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://user:password@ep-example.us-east-1.aws.neon.tech/database?sslmode=verify-full

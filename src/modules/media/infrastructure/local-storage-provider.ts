@@ -19,24 +19,24 @@ export class LocalStorageProvider implements StorageProvider {
     const target = this.resolveKey(input.key);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, input.body);
-    await writeFile(`${target}.meta`, JSON.stringify({ contentType: input.contentType }));
+    await writeFile(`${target}.meta`, JSON.stringify({ contentType: input.contentType, expiresAt: input.expiresAt?.toISOString() }));
   }
 
   async get(key: string): Promise<StoredObject> {
     const target = this.resolveKey(key);
     const [body, metadata] = await Promise.all([
       readFile(target),
-      readFile(`${target}.meta`, "utf8").then((value) => JSON.parse(value) as { contentType: string }),
+      readFile(`${target}.meta`, "utf8").then((value) => JSON.parse(value) as { contentType: string; expiresAt?: string }),
     ]);
+    if (metadata.expiresAt && new Date(metadata.expiresAt) <= new Date()) {
+      await this.delete(key);
+      throw new Error("Objeto expirado no storage.");
+    }
     return { body, contentType: metadata.contentType, contentLength: body.byteLength };
   }
 
   async delete(key: string): Promise<void> {
     const target = this.resolveKey(key);
     await Promise.all([unlink(target).catch(() => undefined), unlink(`${target}.meta`).catch(() => undefined)]);
-  }
-
-  getPublicUrl(key: string): string {
-    return `/api/storage/${encodeURIComponent(key)}`;
   }
 }

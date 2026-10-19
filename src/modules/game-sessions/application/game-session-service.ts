@@ -1,14 +1,14 @@
 import "server-only";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { db } from "@/shared/infrastructure/database/client";
+import { getDatabase } from "@/shared/infrastructure/database/client";
 import { activities, activityRevisions, gameSessions, sessionEvents } from "@/shared/infrastructure/database/schema";
 import { activityRevisionSnapshotSchema } from "@/modules/activities/domain/activity-schemas";
 import { ForbiddenError, type AuthorizedUser } from "@/modules/auth/application/policies";
 import { createInitialSessionState, InvalidSessionCommandError, reduceSession, restoreSessionState } from "@/modules/game-sessions/domain/session-reducer";
 import { createSessionInputSchema, sessionCommandSchema, sessionStateSchema, type CreateSessionInput, type SessionCommand } from "@/modules/game-sessions/domain/session";
 import { getGameTemplate } from "@/modules/game-templates";
-import { listTemporaryTeamImageIds } from "@/modules/game-sessions/infrastructure/temporary-team-image-store";
+import { deleteTemporaryTeamImages, listTemporaryTeamImageIds } from "@/modules/game-sessions/infrastructure/temporary-team-image-store";
 
 export class GameSessionNotFoundError extends Error {
   readonly status = 404;
@@ -46,6 +46,7 @@ function extractDefaultPoints(gameConfig: Record<string, unknown>) {
 }
 
 async function getPublishedSource(activityId: string) {
+  const { db } = getDatabase();
   const activity = await db.query.activities.findFirst({ where: eq(activities.id, activityId) });
   if (!activity?.currentPublishedRevision || activity.deletedAt) throw new GameSessionNotFoundError("Atividade publicada nao encontrada.");
   const revision = await db.query.activityRevisions.findFirst({ where: and(eq(activityRevisions.activityId, activityId), eq(activityRevisions.revision, activity.currentPublishedRevision)) });
@@ -54,6 +55,7 @@ async function getPublishedSource(activityId: string) {
 }
 
 export async function createGameSession(user: AuthorizedUser | undefined, rawInput: unknown) {
+  const { db } = getDatabase();
   const input: CreateSessionInput = createSessionInputSchema.parse(rawInput);
   const source = await getPublishedSource(input.activityId);
   if (source.snapshot.visibility === "private" && source.activity.ownerId !== user?.id && user?.role !== "ADMIN") throw new ForbiddenError();
@@ -75,6 +77,7 @@ export async function createGameSession(user: AuthorizedUser | undefined, rawInp
 }
 
 async function readSessionRecord(sessionId: string) {
+  const { db } = getDatabase();
   const [record] = await db.select().from(gameSessions).where(eq(gameSessions.id, sessionId)).limit(1);
   if (!record) throw new GameSessionNotFoundError();
   const revision = record.revisionId ? await db.query.activityRevisions.findFirst({ where: eq(activityRevisions.id, record.revisionId) }) : null;
@@ -111,9 +114,10 @@ export async function getGameSession(sessionId: string, user?: AuthorizedUser, c
 }
 
 export async function executeSessionCommand(sessionId: string, rawCommand: unknown, user?: AuthorizedUser, internal = false, controllerToken?: string) {
+  const { db } = getDatabase();
   const command: SessionCommand = sessionCommandSchema.parse(rawCommand);
   if (command.type === "expireTimer" && !internal) throw new ForbiddenError();
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     await tx.execute(sql`select id from ${gameSessions} where ${gameSessions.id} = ${sessionId} for update`);
     const [record] = await tx.select().from(gameSessions).where(eq(gameSessions.id, sessionId)).limit(1);
     if (!record) throw new GameSessionNotFoundError();
@@ -123,6 +127,8 @@ export async function executeSessionCommand(sessionId: string, rawCommand: unkno
     await tx.insert(sessionEvents).values({ sessionId, sequence: result.event.sequence, type: result.event.type, payload: result.event.payload });
     return result;
   });
+  if (result.state.status === "finished") await deleteTemporaryTeamImages(sessionId);
+  return result;
 }
 
 export { InvalidSessionCommandError };

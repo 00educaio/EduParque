@@ -1,10 +1,7 @@
 import "server-only";
 
-import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
-import { randomUUID } from "node:crypto";
 import { fileTypeFromBuffer } from "file-type";
+import { PostgresStorageProvider } from "@/modules/media/infrastructure/postgres-storage-provider";
 
 const MAX_TEAM_IMAGE_BYTES = 3 * 1024 * 1024;
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1_000;
@@ -25,23 +22,8 @@ interface TeamImageMetadata {
   updatedAt: string;
 }
 
-function storeRoot() {
-  return resolve(process.env.TEAM_IMAGE_TEMP_DIR || join(tmpdir(), "eduparque-team-images"));
-}
-
-function safePath(...parts: string[]) {
-  const root = storeRoot();
-  const target = resolve(root, ...parts);
-  if (target !== root && !target.startsWith(`${root}${sep}`)) throw new Error("Chave temporaria invalida.");
-  return target;
-}
-
-function imagePath(sessionId: string, teamId: string) {
-  return safePath(sessionId, `${teamId}.image`);
-}
-
-function metadataPath(sessionId: string, teamId: string) {
-  return safePath(sessionId, `${teamId}.json`);
+function imageKey(sessionId: string, teamId: string) {
+  return `team-images/${sessionId}/${teamId}`;
 }
 
 async function validateImage(body: Uint8Array, declaredMimeType: string) {
@@ -56,50 +38,40 @@ async function validateImage(body: Uint8Array, declaredMimeType: string) {
 
 export async function putTemporaryTeamImage(input: { sessionId: string; teamId: string; body: Uint8Array; declaredMimeType: string }) {
   const contentType = await validateImage(input.body, input.declaredMimeType);
-  const directory = safePath(input.sessionId);
-  const target = imagePath(input.sessionId, input.teamId);
-  const metadata: TeamImageMetadata = { contentType, byteSize: input.body.byteLength, updatedAt: new Date().toISOString() };
-  const temporaryTarget = `${target}.${randomUUID()}.tmp`;
-  await mkdir(directory, { recursive: true });
-  await writeFile(temporaryTarget, input.body);
-  await rename(temporaryTarget, target);
-  await writeFile(metadataPath(input.sessionId, input.teamId), JSON.stringify(metadata));
+  const storage = new PostgresStorageProvider();
+  const now = new Date();
+  await storage.cleanupExpired(now);
+  await storage.put({
+    key: imageKey(input.sessionId, input.teamId),
+    body: input.body,
+    contentType,
+    expiresAt: new Date(now.getTime() + DEFAULT_TTL_MS),
+  });
+  const metadata: TeamImageMetadata = { contentType, byteSize: input.body.byteLength, updatedAt: now.toISOString() };
   return metadata;
 }
 
 export async function getTemporaryTeamImage(sessionId: string, teamId: string) {
-  const [body, metadata] = await Promise.all([
-    readFile(imagePath(sessionId, teamId)),
-    readFile(metadataPath(sessionId, teamId), "utf8").then((value) => JSON.parse(value) as TeamImageMetadata),
-  ]);
-  return { body, ...metadata };
+  const object = await new PostgresStorageProvider().get(imageKey(sessionId, teamId));
+  return { body: object.body, contentType: object.contentType, byteSize: object.contentLength ?? object.body.byteLength };
 }
 
 export async function listTemporaryTeamImageIds(sessionId: string) {
-  const files = await readdir(safePath(sessionId)).catch(() => [] as string[]);
-  return files.filter((filename) => filename.endsWith(".json")).map((filename) => filename.slice(0, -5));
+  const prefix = `team-images/${sessionId}/`;
+  const keys = await new PostgresStorageProvider().listKeys(prefix);
+  return keys.map((key) => key.slice(prefix.length));
 }
 
 export async function deleteTemporaryTeamImage(sessionId: string, teamId: string) {
-  await Promise.all([
-    rm(imagePath(sessionId, teamId), { force: true }),
-    rm(metadataPath(sessionId, teamId), { force: true }),
-  ]);
+  await new PostgresStorageProvider().delete(imageKey(sessionId, teamId));
 }
 
 export async function deleteTemporaryTeamImages(sessionId: string) {
-  await rm(safePath(sessionId), { recursive: true, force: true });
+  await new PostgresStorageProvider().deletePrefix(`team-images/${sessionId}/`);
 }
 
 export async function cleanupExpiredTemporaryTeamImages(now = Date.now()) {
-  const root = storeRoot();
-  const ttl = Number(process.env.TEAM_IMAGE_TTL_MS) || DEFAULT_TTL_MS;
-  const directories = await readdir(root, { withFileTypes: true }).catch(() => []);
-  await Promise.all(directories.filter((entry) => entry.isDirectory()).map(async (entry) => {
-    const directory = safePath(entry.name);
-    const details = await stat(directory).catch(() => undefined);
-    if (details && now - details.mtimeMs > ttl) await rm(directory, { recursive: true, force: true });
-  }));
+  return new PostgresStorageProvider().cleanupExpired(new Date(now));
 }
 
 export { MAX_TEAM_IMAGE_BYTES };

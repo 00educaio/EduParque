@@ -29,6 +29,20 @@
       "when": 1792001764437,
       "tag": "0003_silent_shadow_king",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792071399801,
+      "tag": "0004_silly_chronomancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792087381683,
+      "tag": "0005_magenta_the_captain",
+      "breakpoints": true
     }
   ]
 }

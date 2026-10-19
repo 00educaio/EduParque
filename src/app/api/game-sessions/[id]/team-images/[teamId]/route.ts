@@ -5,13 +5,13 @@ import { assertUser } from "@/modules/auth/application/policies";
 import { getGameSession, sessionControllerCookieName } from "@/modules/game-sessions/application/game-session-service";
 import { gameSessionErrorResponse } from "@/modules/game-sessions/application/http";
 import {
-  cleanupExpiredTemporaryTeamImages,
   deleteTemporaryTeamImage,
   getTemporaryTeamImage,
   InvalidTeamImageError,
   MAX_TEAM_IMAGE_BYTES,
   putTemporaryTeamImage,
 } from "@/modules/game-sessions/infrastructure/temporary-team-image-store";
+import { StorageObjectNotFoundError } from "@/modules/media/infrastructure/postgres-storage-provider";
 
 async function sessionAccess(id: string) {
   const authSession = await auth();
@@ -40,7 +40,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     });
   } catch (error) {
     if (error instanceof InvalidTeamImageError) return NextResponse.json({ error: error.message }, { status: error.status });
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return new Response(null, { status: 404 });
+    if (error instanceof StorageObjectNotFoundError) return new Response(null, { status: 404 });
     return gameSessionErrorResponse(error);
   }
 }
@@ -58,7 +58,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (!(file instanceof File)) return NextResponse.json({ error: "Envie uma imagem no campo 'file'." }, { status: 400 });
     if (file.size > MAX_TEAM_IMAGE_BYTES) return NextResponse.json({ error: "A imagem da equipe pode ter no maximo 3 MB." }, { status: 413 });
     const stored = await putTemporaryTeamImage({ sessionId: id, teamId, declaredMimeType: file.type, body: new Uint8Array(await file.arrayBuffer()) });
-    void cleanupExpiredTemporaryTeamImages().catch(console.error);
     return NextResponse.json({ teamId, contentType: stored.contentType }, { status: 201 });
   } catch (error) {
     if (error instanceof InvalidTeamImageError) return NextResponse.json({ error: error.message }, { status: error.status });

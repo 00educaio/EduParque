@@ -1,5 +1,8 @@
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { db, sql } from "./client";
+import { getEnv } from "@/shared/infrastructure/config/env";
+import { createDatabase } from "./client";
+
+const { db, sql } = createDatabase(getEnv().DATABASE_URL);
 
 async function main() {
   await migrate(db, { migrationsFolder: "./drizzle" });

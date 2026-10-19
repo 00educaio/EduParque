@@ -26,7 +26,7 @@ export class S3CompatibleStorageProvider implements StorageProvider {
   }
 
   async put(input: PutObjectInput): Promise<void> {
-    await this.client.send(new PutObjectCommand({ Bucket: this.options.bucket, Key: input.key, Body: input.body, ContentType: input.contentType }));
+    await this.client.send(new PutObjectCommand({ Bucket: this.options.bucket, Key: input.key, Body: input.body, ContentType: input.contentType, Expires: input.expiresAt }));
   }
 
   async get(key: string): Promise<StoredObject> {
@@ -41,11 +41,5 @@ export class S3CompatibleStorageProvider implements StorageProvider {
 
   async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.options.bucket, Key: key }));
-  }
-
-  getPublicUrl(key: string): string {
-    const encodedKey = key.split("/").map(encodeURIComponent).join("/");
-    if (this.options.endpoint) return `${this.options.endpoint.replace(/\/$/, "")}/${this.options.bucket}/${encodedKey}`;
-    return `https://${this.options.bucket}.s3.${this.options.region}.amazonaws.com/${encodedKey}`;
   }
 }

@@ -1,11 +1,13 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { eq, inArray } from "drizzle-orm";
-import { db, sql } from "@/shared/infrastructure/database/client";
+import { createDatabase } from "@/shared/infrastructure/database/client";
+import { getEnv } from "@/shared/infrastructure/config/env";
 import { activities, gameSessions, sessionEvents, users } from "@/shared/infrastructure/database/schema";
 import { createActivity, publishActivity, updateDraft } from "@/modules/activities/application/activity-service";
 import { createGameSession, executeSessionCommand, getGameSession } from "./game-session-service";
 
 const databaseDescribe = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
+const { db, sql } = createDatabase(getEnv().DATABASE_URL);
 
 databaseDescribe("GameSessionService com PostgreSQL", () => {
   const userIds: string[] = [];

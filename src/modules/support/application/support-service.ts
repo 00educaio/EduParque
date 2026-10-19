@@ -1,7 +1,7 @@
 import "server-only";
 
 import { and, asc, count, desc, eq, gte, ne } from "drizzle-orm";
-import { db } from "@/shared/infrastructure/database/client";
+import { getDatabase } from "@/shared/infrastructure/database/client";
 import { supportMessages, supportTickets, users } from "@/shared/infrastructure/database/schema";
 import {
   createSupportMessageSchema,
@@ -39,18 +39,21 @@ const ticketSelection = {
 };
 
 async function assertTicketCreationRate(ownerId: string) {
+  const { db } = getDatabase();
   const since = new Date(Date.now() - 60 * 60 * 1_000);
   const [result] = await db.select({ value: count() }).from(supportTickets).where(and(eq(supportTickets.ownerId, ownerId), gte(supportTickets.createdAt, since)));
   if ((result?.value ?? 0) >= 5) throw new SupportRateLimitError("Você atingiu o limite de 5 novas solicitações por hora. Aguarde antes de tentar novamente.");
 }
 
 async function assertMessageRate(authorId: string) {
+  const { db } = getDatabase();
   const since = new Date(Date.now() - 10 * 60 * 1_000);
   const [result] = await db.select({ value: count() }).from(supportMessages).where(and(eq(supportMessages.authorId, authorId), gte(supportMessages.createdAt, since)));
   if ((result?.value ?? 0) >= 20) throw new SupportRateLimitError("Muitas mensagens foram enviadas em pouco tempo. Aguarde alguns minutos.");
 }
 
 async function listMessages(ticketId: string) {
+  const { db } = getDatabase();
   return db.select({
     id: supportMessages.id,
     ticketId: supportMessages.ticketId,
@@ -64,11 +67,13 @@ async function listMessages(ticketId: string) {
 }
 
 export async function listUserSupportTickets(ownerId: string) {
+  const { db } = getDatabase();
   return db.select(ticketSelection).from(supportTickets).innerJoin(users, eq(users.id, supportTickets.ownerId))
     .where(eq(supportTickets.ownerId, ownerId)).orderBy(desc(supportTickets.updatedAt)).limit(100);
 }
 
 export async function getUserSupportTicket(ticketId: string, ownerId: string) {
+  const { db } = getDatabase();
   const [ticket] = await db.select(ticketSelection).from(supportTickets).innerJoin(users, eq(users.id, supportTickets.ownerId))
     .where(and(eq(supportTickets.id, ticketId), eq(supportTickets.ownerId, ownerId))).limit(1);
   if (!ticket) throw new SupportTicketNotFoundError();
@@ -76,6 +81,7 @@ export async function getUserSupportTicket(ticketId: string, ownerId: string) {
 }
 
 export async function createSupportTicket(ownerId: string, input: unknown) {
+  const { db } = getDatabase();
   const parsed = createSupportTicketSchema.parse(input);
   await assertTicketCreationRate(ownerId);
   await assertMessageRate(ownerId);
@@ -88,6 +94,7 @@ export async function createSupportTicket(ownerId: string, input: unknown) {
 }
 
 export async function addTeacherSupportMessage(ticketId: string, ownerId: string, input: unknown) {
+  const { db } = getDatabase();
   const parsed = createSupportMessageSchema.parse(input);
   await assertMessageRate(ownerId);
   return db.transaction(async (tx) => {
@@ -106,6 +113,7 @@ export async function addTeacherSupportMessage(ticketId: string, ownerId: string
 }
 
 export async function listAdminSupportTickets(status?: string) {
+  const { db } = getDatabase();
   const parsedStatus = status ? supportTicketStatusSchema.parse(status) : undefined;
   return db.select(ticketSelection).from(supportTickets).innerJoin(users, eq(users.id, supportTickets.ownerId))
     .where(parsedStatus ? eq(supportTickets.status, parsedStatus) : undefined)
@@ -113,6 +121,7 @@ export async function listAdminSupportTickets(status?: string) {
 }
 
 export async function getAdminSupportTicket(ticketId: string) {
+  const { db } = getDatabase();
   const [ticket] = await db.select(ticketSelection).from(supportTickets).innerJoin(users, eq(users.id, supportTickets.ownerId))
     .where(eq(supportTickets.id, ticketId)).limit(1);
   if (!ticket) throw new SupportTicketNotFoundError();
@@ -120,6 +129,7 @@ export async function getAdminSupportTicket(ticketId: string) {
 }
 
 export async function addAdminSupportMessage(ticketId: string, adminId: string, input: unknown) {
+  const { db } = getDatabase();
   const parsed = createSupportMessageSchema.parse(input);
   await assertMessageRate(adminId);
   return db.transaction(async (tx) => {
@@ -137,6 +147,7 @@ export async function addAdminSupportMessage(ticketId: string, adminId: string, 
 }
 
 export async function closeSupportTicket(ticketId: string) {
+  const { db } = getDatabase();
   const [ticket] = await db.update(supportTickets).set({ status: "closed", closedAt: new Date(), updatedAt: new Date() })
     .where(eq(supportTickets.id, ticketId)).returning();
   if (!ticket) throw new SupportTicketNotFoundError();
