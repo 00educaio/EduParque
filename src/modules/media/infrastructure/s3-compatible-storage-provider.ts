@@ -19,6 +19,10 @@ export class S3CompatibleStorageProvider implements StorageProvider {
       endpoint: options.endpoint,
       region: options.region,
       forcePathStyle: options.forcePathStyle,
+      // O navegador envia o corpo depois que a URL e assinada. Checksums
+      // calculados pelo SDK neste momento descreveriam um corpo vazio.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
       credentials:
         options.accessKeyId && options.secretAccessKey
           ? { accessKeyId: options.accessKeyId, secretAccessKey: options.secretAccessKey }

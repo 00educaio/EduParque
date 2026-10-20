@@ -23,6 +23,8 @@ describe("S3CompatibleStorageProvider", () => {
     expect(`${signed.origin}${signed.pathname}`).toBe("https://storage.example.com/private-media/owner/media/upload-id");
     expect(signed.searchParams.get("X-Amz-Expires")).toBe("300");
     expect(signed.searchParams.get("x-amz-meta-upload-id")).toBe("upload-id");
+    expect(signed.searchParams.has("x-amz-checksum-crc32")).toBe(false);
+    expect(signed.searchParams.has("x-amz-sdk-checksum-algorithm")).toBe(false);
     expect(signed.toString()).not.toContain("test-secret-key");
   });
 });

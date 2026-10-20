@@ -40,6 +40,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     assertKnownTeam(session, teamId);
     const image = await getTemporaryTeamImage(id, teamId);
     if (image.readUrl) return NextResponse.redirect(image.readUrl, { status: 307, headers: { "Cache-Control": "private, no-store" } });
+    if (process.env.VERCEL === "1") {
+      return NextResponse.json({ error: "Storage S3 nao configurado na Vercel." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+    }
     const object = await image.storage.get(image.record.storageKey);
     return new Response(new Uint8Array(object.body).buffer, {
       headers: {
@@ -69,6 +72,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       }
       const prepared = await beginTemporaryTeamImageUpload({ sessionId: id, teamId, declaredMimeType: input.mimeType, byteSize: input.byteSize });
       return NextResponse.json(prepared, { status: 201, headers: { "Cache-Control": "no-store" } });
+    }
+    if (process.env.VERCEL === "1") {
+      return NextResponse.json({ error: "Uploads na Vercel exigem o fluxo S3 direto pre-assinado." }, { status: 503 });
     }
     const contentLength = Number(request.headers.get("content-length") ?? 0);
     if (contentLength > MAX_TEAM_IMAGE_BYTES + 64 * 1024) return NextResponse.json({ error: "A imagem da equipe pode ter no maximo 5 MiB." }, { status: 413 });

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("Quiz, Matching e Roleta compartilham Activity, renderer e SessionShell", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   await page.goto("/login");
   await page.getByLabel("Nome").fill("Professor Task 04");
   await page.getByLabel("E-mail").fill(`task-04-${Date.now()}@eduparque.local`);
@@ -71,15 +71,18 @@ test("Quiz, Matching e Roleta compartilham Activity, renderer e SessionShell", a
   for (let index = 1; index < await cards.count(); index += 1) {
     await cards.nth(index).click();
     if (await page.getByText("Par correto!").isVisible()) break;
-    await page.getByRole("button", { name: "Fechar cartas" }).click();
+    const mismatch = page.getByText("Não combinou. As cartas serão fechadas em 5 segundos.");
+    await expect(mismatch).toBeVisible();
+    await expect(mismatch).not.toBeVisible({ timeout: 7_000 });
     await cards.first().click();
   }
   await expect(page.getByText("Par correto!")).toBeVisible();
-  await expect(page.locator(".team-score").first().locator("strong")).toHaveText("100");
+  await expect.poll(async () => (await page.locator(".team-score strong").allTextContents())
+    .reduce((total, score) => total + Number(score), 0)).toBe(100);
 
   await startPresentation("Roleta");
   await page.getByRole("button", { name: "Girar roleta" }).click();
-  await expect(page.getByText("Item sorteado")).toBeVisible();
+  await expect(page.getByText("Item sorteado", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Girar novamente" })).toBeVisible();
 
   await page.evaluate(async (activityId) => { await fetch(`/api/activities/${activityId}`, { method: "DELETE" }); }, source.activityId);

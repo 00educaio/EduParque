@@ -11,6 +11,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const { id } = await context.params;
     const { asset, storage, readUrl } = await getReadableMedia(id, user?.id);
     if (readUrl) return NextResponse.redirect(readUrl, { status: 307, headers: { "Cache-Control": "private, no-store" } });
+    if (process.env.VERCEL === "1") {
+      return NextResponse.json({ error: "Storage S3 nao configurado na Vercel." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+    }
     const object = await storage.get(asset.storageKey);
     const body = new Uint8Array(object.body).buffer;
     return new Response(body, {

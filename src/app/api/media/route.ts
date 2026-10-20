@@ -27,6 +27,9 @@ export async function POST(request: Request) {
       }, { status: 201, headers: { "Cache-Control": "no-store" } });
     }
 
+    if (process.env.VERCEL === "1") {
+      return NextResponse.json({ error: "Uploads na Vercel exigem o fluxo S3 direto pre-assinado." }, { status: 503 });
+    }
     if (getEnv().STORAGE_DRIVER !== "local") return NextResponse.json({ error: "Em S3, use o fluxo de upload direto pre-assinado." }, { status: 415 });
     const contentLength = Number(request.headers.get("content-length") ?? 0);
     if (contentLength > MAX_MEDIA_BYTES + 64 * 1024) return NextResponse.json({ error: "O upload excede o limite de 5 MiB." }, { status: 413 });
