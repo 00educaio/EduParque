@@ -13,9 +13,9 @@ Atualizado em 21/10/2026. O runbook detalhado está em [docs/VERCEL_FREE_MIGRATI
 
 ## Próxima ação
 
-1. `VOCÊ` Responder aos dois gates da seção 1: elegibilidade ao Hobby e login necessário.
-2. `VOCÊ` Fornecer somente as informações não secretas da seção 2.
-3. `EU` Revisar suas respostas e conduzir uma etapa por vez, atualizando este checklist com a evidência obtida.
+1. `VOCÊ` Confirmar se também possui acesso administrativo ao projeto Neon atual em São Paulo, que contém o banco principal.
+2. `VOCÊ` Conferir no painel desse projeto os quatro itens da seção 3, sem compartilhar segredos.
+3. `EU` Revisar essa evidência e conduzir a preparação do Neon de Preview e do Object Storage, uma etapa por vez.
 
 ## 0. Estado atual — concluído localmente
 
@@ -33,27 +33,32 @@ Atualizado em 21/10/2026. O runbook detalhado está em [docs/VERCEL_FREE_MIGRATI
 
 ## 1. Resolver os dois gates antes de criar infraestrutura
 
-- [ ] `VOCÊ` Confirmar se o EduParque é estritamente pessoal e não comercial, condição obrigatória do Vercel Hobby.
-  - Evidência: registrar “Hobby elegível: sim” com a justificativa.
-  - Se a resposta for não ou incerta: parar; Vercel Hobby não pode ser usado nesta arquitetura gratuita.
-- [ ] `VOCÊ` Informar qual login precisa existir em produção:
-  - [ ] somente Google OAuth;
-  - [ ] Magic Link por e-mail também é obrigatório.
-- [ ] `EU` Se Magic Link for obrigatório, preparar uma atualização isolada de Auth.js/Nodemailer e repetir todos os testes de autenticação.
-  - Motivo: a versão atual tem quatro alertas `high` sem correção automática compatível.
-- [ ] `JUNTOS` Confirmar a decisão de autenticação antes do Preview.
+- [x] `VOCÊ` Confirmou que o EduParque é elegível ao Vercel Hobby: “Hobby elegível: sim” em 21/10/2026.
+- [x] `VOCÊ` Confirmou que somente Google OAuth precisa existir em produção.
+  - Magic Link por e-mail não será usado; as variáveis `EMAIL_*` devem permanecer ausentes.
+- [x] `EU` Registrei que a atualização de Auth.js/Nodemailer não faz parte do escopo atual porque Magic Link ficará desabilitado.
+  - Os quatro alertas `high` transitivos continuam documentados como risco residual e serão reavaliados antes da produção.
+- [x] `JUNTOS` Decisão de autenticação definida para o Preview: somente Google OAuth.
 
 ## 2. Reunir informações sem compartilhar segredos
 
-- [ ] `VOCÊ` Informar os nomes/domínios, sem tokens:
-  - domínio definitivo de produção;
-  - alias estável de Preview;
-  - provider de mídia atual: `local` ou S3 compatível;
-  - localização lógica das mídias antigas;
-  - provider de login usado hoje.
-- [ ] `VOCÊ` Confirmar que possui acesso de administrador ao Neon atual, ao novo projeto Neon, à Vercel e ao OAuth/SMTP aplicável.
+- [x] `VOCÊ` Confirmou que ainda não possui domínio personalizado nem alias de Preview.
+  - Produção e Preview usarão inicialmente os hostnames `*.vercel.app` gerados pela Vercel.
+  - Os nomes exatos serão registrados somente depois que o projeto e o Preview existirem.
+  - Depois disso, o callback Google será configurado como `https://<hostname-exato>/api/auth/callback/google`.
+- [x] `VOCÊ` Confirmou que o provider de login será Google OAuth; SMTP não é aplicável.
+- [x] `VOCÊ` Confirmou acesso ao novo projeto Neon, à Vercel e à configuração Google OAuth.
+- [ ] `VOCÊ` Confirmar acesso administrativo ao projeto Neon atual em São Paulo, que não pode ser substituído.
+- [ ] `VOCÊ` Identificar no ambiente atual, sem compartilhar credenciais:
+  - provider de mídia de produção: `local` ou S3 compatível;
+  - localização lógica das mídias antigas.
+- [x] `EU` Conferi o estado local sem ler segredos:
+  - desenvolvimento e Docker usam `STORAGE_DRIVER=local` por padrão;
+  - `storage/` contém artefatos locais de desenvolvimento/teste, o que não comprova o provider usado em produção;
+  - o provider e a localização das mídias de produção continuam pendentes até a conferência do ambiente atual;
+  - o repositório ainda não está vinculado localmente à Vercel e as CLIs Vercel/Neon não estão instaladas.
 - [ ] `VOCÊ` Configurar segredos diretamente nos painéis ou em arquivo local ignorado pelo Git quando chegarmos às etapas correspondentes.
-- [ ] `EU` Conferir apenas nomes de variáveis, origens e permissões; nunca imprimir ou versionar seus valores.
+- [x] `EU` Até aqui, conferi somente nomes de variáveis, origens e permissões; nenhum valor secreto foi lido, impresso ou versionado.
 
 ## 3. Proteger o PostgreSQL atual
 
@@ -71,7 +76,8 @@ Atualizado em 21/10/2026. O runbook detalhado está em [docs/VERCEL_FREE_MIGRATI
 
 ## 4. Criar o Object Storage gratuito e isolado
 
-- [ ] `VOCÊ` Criar manualmente um segundo projeto Neon Free em `aws-us-east-1`.
+- [ ] `VOCÊ` No novo projeto Neon ao qual já possui acesso, confirmar que ele é independente do banco principal, está no plano Free e usa `aws-us-east-1`.
+  - Se qualquer item não conferir: parar antes de criar bucket ou credenciais; não criar um projeto duplicado sem revisar a situação.
 - [ ] `VOCÊ` Confirmar que não há trial, cartão, upgrade ou cobrança por excedente habilitada.
 - [ ] `VOCÊ` Criar o bucket privado de mídias; leitura pública deve permanecer desativada.
 - [ ] `VOCÊ` Criar uma branch de storage para Preview, separada da produção.
@@ -90,7 +96,8 @@ Atualizado em 21/10/2026. O runbook detalhado está em [docs/VERCEL_FREE_MIGRATI
   - `AUTH_TRUST_HOST=true`;
   - `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`;
   - `DEV_AUTH_ENABLED=false`;
-  - variáveis do provider de autenticação escolhido;
+  - `AUTH_GOOGLE_ID` e `AUTH_GOOGLE_SECRET`;
+  - nenhuma variável `EMAIL_*`;
   - `CRON_SECRET`;
   - `STORAGE_DRIVER=s3`;
   - `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET` e credenciais da branch de Preview;
