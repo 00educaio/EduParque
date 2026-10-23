@@ -1,0 +1,5 @@
+# S3-compatible storage. Generate a credential to fill in the key ID + secret.
+AWS_ENDPOINT_URL_S3="https://br-little-mouse-b7sahail.storage.c-13.us-east-1.aws.neon.tech"
+AWS_ACCESS_KEY_ID="nak_live_ef02fa44946442f395f0cd3775175f5a"
+AWS_SECRET_ACCESS_KEY="nsk_live_a94b07cde324b8073e0503f5b905911409fcfdb5944c7d33780720ee8ce8c6bd"
+AWS_REGION="us-east-1"

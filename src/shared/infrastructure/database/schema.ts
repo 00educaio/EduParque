@@ -30,13 +30,52 @@ export const users = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     name: text("name"),
     email: text("email").unique(),
+    username: text("username").unique(),
     emailVerified: timestamp("email_verified", { withTimezone: true, mode: "date" }),
     image: text("image"),
     role: userRoleEnum("role").notNull().default("USER"),
+    passwordHash: text("password_hash"),
+    passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }),
+    authVersion: integer("auth_version").notNull().default(0),
+    failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+    failedLoginWindowStartedAt: timestamp("failed_login_window_started_at", { withTimezone: true }),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("users_email_idx").on(table.email)],
+  (table) => [index("users_email_idx").on(table.email), index("users_username_idx").on(table.username)],
+);
+
+export const authLoginAttempts = pgTable(
+  "auth_login_attempts",
+  {
+    identifierHash: text("identifier_hash").primaryKey(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    failedAttempts: integer("failed_attempts").notNull().default(0),
+    windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("auth_login_attempts_user_idx").on(table.userId), index("auth_login_attempts_updated_idx").on(table.updatedAt)],
+);
+
+export const registrationInvites = pgTable(
+  "registration_invites",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    email: text("email").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("registration_invites_token_hash_unique").on(table.tokenHash),
+    index("registration_invites_email_idx").on(table.email),
+    index("registration_invites_expires_idx").on(table.expiresAt),
+  ],
 );
 
 export const accounts = pgTable(

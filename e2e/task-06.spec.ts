@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { registerTeacher } from "./auth-helper";
 
 test("fluxo principal termina uma partida publica sem conta", async ({ page }) => {
   test.setTimeout(90_000);
-  await page.goto("/login");
-  await page.getByLabel("Nome").fill("Professor Task 06");
-  await page.getByLabel("E-mail").fill(`task-06-${Date.now()}@eduparque.local`);
-  await page.getByRole("button", { name: "Entrar localmente" }).click();
+  await registerTeacher(page, "task-06");
+  await page.goto("/");
   await page.getByRole("button", { name: "Criar atividade" }).click();
   await page.getByRole("button", { name: "Continuar para conteúdo" }).click();
   await page.getByRole("button", { name: /Perguntas e respostas/ }).click();

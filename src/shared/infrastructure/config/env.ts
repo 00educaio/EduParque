@@ -9,14 +9,7 @@ const envSchema = z
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     DATABASE_URL: z.string().url().default("postgresql://eduparque:eduparque@localhost:5432/eduparque"),
     AUTH_SECRET: optionalString,
-    DEV_AUTH_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
-    AUTH_GOOGLE_ID: optionalString,
-    AUTH_GOOGLE_SECRET: optionalString,
-    EMAIL_SERVER_HOST: optionalString,
-    EMAIL_SERVER_PORT: z.coerce.number().int().positive().default(587),
-    EMAIL_SERVER_USER: optionalString,
-    EMAIL_SERVER_PASSWORD: optionalString,
-    EMAIL_FROM: optionalString,
+    AUTH_TRUST_HOST: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
     CRON_SECRET: optionalString,
     STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
     LOCAL_STORAGE_PATH: z.string().default("./storage"),
@@ -32,9 +25,6 @@ const envSchema = z
     TEAM_IMAGE_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   })
   .superRefine((env, context) => {
-    if ((env.AUTH_GOOGLE_ID && !env.AUTH_GOOGLE_SECRET) || (!env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET)) {
-      context.addIssue({ code: "custom", message: "AUTH_GOOGLE_ID e AUTH_GOOGLE_SECRET devem ser definidos juntos." });
-    }
     if ((env.S3_ACCESS_KEY_ID && !env.S3_SECRET_ACCESS_KEY) || (!env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY)) {
       context.addIssue({ code: "custom", message: "S3_ACCESS_KEY_ID e S3_SECRET_ACCESS_KEY devem ser definidos juntos." });
     }

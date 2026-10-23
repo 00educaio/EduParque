@@ -1,0 +1,27 @@
+# Segredos e configuração local
+.env
+.env.*
+.vercel
+.aws
+
+# Dependências, builds e armazenamento local
+node_modules
+.next
+.open-next
+.wrangler
+storage
+coverage
+playwright-report
+test-results
+*.tsbuildinfo
+
+# Artefatos locais de planejamento e revisão visual
+artifacts
+backups
+EduParque_Redesign_Codex_MD_e_Prints
+image.png
+
+# Backups e arquivos temporários/pessoais
+*.dump
+*.save
+*.docx

@@ -23,8 +23,8 @@ Os limites podem mudar. Reabrir essas fontes imediatamente antes do Preview e da
 |---|---|---|
 | Next.js 16 | Vercel Hobby, Node 22, `gru1` | `vercel.json` fixa `gru1`, Fluid Compute e cron diário. A região prioriza a latência do banco principal em São Paulo. |
 | PostgreSQL principal | Projeto Neon atual em São Paulo | Preservar exatamente o projeto e a `DATABASE_URL` de produção. Confirmar manualmente que o hostname é pooled (`-pooler`). Pool da aplicação limitado a 3 conexões, sem prepared statements. |
-| Autenticação e sessões | Auth.js + tabelas atuais no Postgres | Nenhuma migração de identidade. Produção continua com sessão em banco; login local permanece bloqueado em produção. |
-| Object Storage | Segundo projeto Neon Free em `aws-us-east-1` | Projeto independente, bucket privado e interface S3 existente. Produção e Preview não podem compartilhar branch/credenciais de escrita. |
+| Autenticação e sessões | Auth.js + credenciais no Postgres | Login convencional por usuário/e-mail e senha, com cadastro somente por convite individual e sem Google Cloud ou SMTP. Sessões JWT são invalidadas após redefinição de senha. |
+| Object Storage | Segundo projeto Neon Free em `aws-us-east-1` | Projeto independente, bucket privado e interface S3 existente. Produção e Preview usam endpoints de branch distintos; o Neon pode herdar a credencial na linhagem, mantendo a visão de escrita isolada por endpoint. |
 | Mídia própria | Browser direto para S3 | Function autentica, registra `pending`, assina PUT de 5 minutos e finaliza após validar HEAD, metadado, tamanho, MIME e assinatura do arquivo. |
 | Leitura privada | Redirect 307 para GET assinado | URL de leitura dura 15 minutos por padrão. A Function não devolve binário na Vercel. |
 | URLs externas | HTTPS direto no navegador | Persistir URL, tipo e nome; o servidor não busca o recurso. URLs locais, privadas, com credenciais, fragmentos ou protocolos não HTTPS são rejeitadas. |
@@ -77,6 +77,7 @@ As migrations são aditivas:
 
 - `0004_flawless_wrecker.sql`: adiciona status `pending/ready`, expiração e data de verificação; mídias existentes recebem `ready` por padrão;
 - `0005_fluffy_the_spike.sql`: cria `temporary_team_images`, vinculada à sessão, com índices de estado/expiração.
+- `0006_military_valkyrie.sql`: registra credenciais com hash e controle de tentativas; é idempotente para compatibilidade com o schema já existente no Neon atual.
 
 Procedimento seguro para as mídias antigas:
 
@@ -101,9 +102,6 @@ Definir separadamente nos ambientes Preview e Production. Nunca versionar valore
 | `AUTH_SECRET` | sim | Segredo Auth.js aleatório com pelo menos 32 bytes. |
 | `AUTH_TRUST_HOST` | sim | `true` na Vercel. |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | sim | Chave AES compartilhada entre réplicas/builds. |
-| `DEV_AUTH_ENABLED` | sim | `false` em Preview e Production. |
-| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | conforme uso | OAuth existente; configurar callback do domínio correto. |
-| `EMAIL_SERVER_HOST`, `EMAIL_SERVER_PORT`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD`, `EMAIL_FROM` | conforme uso | Magic Link existente. Ver risco de Nodemailer abaixo antes de habilitar. |
 | `CRON_SECRET` | sim | Segredo independente, aleatório, mínimo 16 caracteres. |
 | `STORAGE_DRIVER` | sim | Obrigatoriamente `s3` na Vercel. |
 | `S3_ENDPOINT` | sim | Valor equivalente a `AWS_ENDPOINT_URL_S3` do projeto Neon de storage, sempre HTTPS. |
@@ -126,8 +124,8 @@ Para validar Preview, `PREVIEW_BASE_URL` é obrigatória localmente. `VERCEL_AUT
 2. Criar backup lógico antes das migrations. O restore instantâneo Free é de apenas 6 horas e não substitui o backup.
 3. Criar manualmente um segundo projeto Free em `aws-us-east-1`, sem trial, cartão, upgrade ou cobrança por excedente.
 4. Criar bucket privado; confirmar que leitura pública está desativada.
-5. Criar branch de Preview no projeto de storage e manter objetos/credenciais isolados da branch de produção.
-6. Obter endpoint, região, bucket e credenciais S3 de cada branch. Não usar chave administrativa no cliente.
+5. Criar branch de Preview no projeto de storage e confirmar que seu endpoint mantém a visão dos objetos isolada da branch de produção.
+6. Obter endpoint, região, bucket e credenciais S3 de cada branch. O Neon pode herdar a mesma credencial na linhagem; nesse caso, confirmar endpoints distintos com um teste real de escrita isolada. Não usar chave administrativa no cliente.
 7. Aplicar CORS com origens exatas e testar preflight de PUT.
 8. Aplicar migrations primeiro na branch de banco de Preview com `npm run db:migrate`.
 9. Executar inventário, dry-run, cópia e inventário pós-cópia conforme a seção anterior.
@@ -140,7 +138,7 @@ Para validar Preview, `PREVIEW_BASE_URL` é obrigatória localmente. `VERCEL_AUT
 3. Confirmar Framework Preset Next.js, Node 22 e configurações de `vercel.json` (`gru1`, Fluid e cron diário às 03:17 UTC).
 4. Configurar todas as variáveis de Preview com branches isoladas de banco e storage.
 5. Configurar Production separadamente, preservando a `DATABASE_URL` atual. Nunca copiar credenciais de Production para Preview.
-6. Registrar callbacks OAuth e domínios autorizados de cada ambiente.
+6. Aplicar as migrations no Preview e criar a primeira conta com `npm run auth:user`; a senha é digitada de forma oculta no terminal.
 7. Criar alias estável de Preview e aplicar CORS exato ao bucket da branch de Preview.
 8. Gerar um Preview somente após autorização e executar o checklist abaixo.
 9. Só promover Production após autorização explícita e todos os gates verdes.
@@ -157,14 +155,14 @@ Para validar Preview, `PREVIEW_BASE_URL` é obrigatória localmente. `VERCEL_AUT
 | ESLint | `npm run lint`: passou. |
 | Build Next.js | `npm run build:webpack`: passou. O build Turbopack não pôde abrir o socket auxiliar no sandbox local (`Operation not permitted`); precisa ser repetido no Preview. |
 | E2E Chromium | 9/9 passaram no banco Docker isolado; o cenário multiparte antes flakey também passou 3/3 repetições. |
-| Auditoria de produção | `npm audit --omit=dev`: 4 alertas high em Nodemailer 8.0.11 via Auth.js; sem correção compatível automática. |
+| Autenticação convencional | Implementada com bcrypt no PostgreSQL, bloqueio temporário e mensagem de erro genérica; teste com banco deve ser repetido no Preview. |
 
 Testes ainda dependentes de acesso externo e, portanto, não foram simulados como sucesso:
 
 - PUT e GET reais no Neon Object Storage, incluindo arquivo válido de exatamente 5 MiB, CORS e expiração das URLs;
 - cold start de Function + retomada do Neon após pelo menos 6 minutos sem tráfego;
 - soak de 50 minutos com sessão/jogo real e observação de cronômetros;
-- OAuth/Magic Link e callback nos domínios finais;
+- login convencional, bloqueio por tentativas e persistência/invalidação da sessão no domínio final;
 - build Turbopack e métricas no Preview.
 
 Com Preview autorizado:
@@ -185,10 +183,10 @@ O modo `--cold-start` aguarda 360 segundos por padrão. O modo `--soak` dura 50 
 - [ ] `DATABASE_URL` de Production é exatamente a atual, pooled e em São Paulo.
 - [ ] Preview usa branch de banco separada.
 - [ ] Projeto de Object Storage é Free, separado e em `aws-us-east-1`.
-- [ ] Bucket é privado; Preview e Production usam branches/credenciais diferentes.
+- [ ] Bucket é privado; Preview e Production usam branches e endpoints diferentes, com isolamento de escrita validado mesmo se o Neon herdar a credencial.
 - [ ] CORS contém somente os dois domínios aprovados; CSP contém somente a origem S3 necessária em `connect-src`.
 - [ ] `STORAGE_DRIVER=s3`; nenhuma credencial S3 aparece em HTML, JS, logs ou respostas.
-- [ ] `DEV_AUTH_ENABLED=false`; Auth.js e sessões existentes foram exercitados.
+- [ ] Primeira conta criada pelo comando administrativo; Auth.js, login, logout e sessões foram exercitados.
 - [ ] Migrations foram aplicadas primeiro no Preview e as contagens conferidas.
 - [ ] Inventário anterior, dry-run, cópia, inventário posterior e amostragem concluídos; origem preservada.
 - [ ] Upload de 5 MiB e rejeição de 5 MiB + 1 byte confirmados no bucket real.
@@ -196,7 +194,7 @@ O modo `--cold-start` aguarda 360 segundos por padrão. O modo `--soak` dura 50 
 - [ ] Encerrar sessão remove temporários; cron pode ser repetido sem erro e recusa segredo incorreto.
 - [ ] Suíte unitária/integração/E2E, build Turbopack, cold start e soak de 50 minutos passaram no Preview.
 - [ ] Uso de banco, Object Storage, CPU/memória, invocações, erros 4xx/5xx, p95 e logs estão abaixo de 70% das franquias.
-- [ ] Riscos de Nodemailer resolvidos ou Magic Link comprovadamente desabilitado com Google OAuth validado.
+- [ ] Bloqueio por tentativas e invalidação de sessão após redefinição de senha foram validados.
 - [ ] Autorização explícita para Production registrada.
 
 ## Métricas mínimas
@@ -208,7 +206,7 @@ Registrar no app/monitoramento, sem segredos ou URLs assinadas: contagem de auto
 ## Riscos residuais
 
 1. **Elegibilidade Vercel Hobby:** é gate de go/no-go. Se o uso for institucional/comercial, não há deploy compatível com a arquitetura decidida e a regra de custo zero.
-2. **Nodemailer/Auth.js:** a versão compatível com `next-auth@5.0.0-beta.32` é afetada por advisories high; `npm audit` não oferece correção compatível. Deixar todas as variáveis `EMAIL_*` vazias desabilita Magic Link. Se ele for obrigatório, atualizar Auth.js/Nodemailer em mudança separada e repetir toda a autenticação antes de produção.
+2. **Recuperação de conta:** o protótipo não envia e-mail; somente uma pessoa com acesso autorizado ao banco/terminal pode redefinir senhas.
 3. **Capacidade:** o Free pode pausar ao exceder limites. Não existe overage gratuito; acompanhar crescimento e impedir uploads antes de 5 GB.
 4. **Latência:** Functions/banco ficam em São Paulo e objetos em US East; upload/leitura podem ter maior latência, deliberadamente sem mover o banco.
 5. **URLs externas:** podem expirar, rastrear usuários ou mudar conteúdo. O servidor evita SSRF porque não faz fetch, mas disponibilidade e privacidade do host externo continuam fora do controle do EduParque.

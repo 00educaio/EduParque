@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const e2eDatabaseUrl = process.env.E2E_DATABASE_URL ?? "postgresql://eduparque:eduparque@localhost:5432/eduparque";
+
 export default defineConfig({
   testDir: "./e2e",
   // O servidor Next de desenvolvimento compila rotas sob demanda. Executar todos
@@ -12,7 +14,10 @@ export default defineConfig({
     command: "npm run dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
-    env: { AUTH_SECRET: process.env.AUTH_SECRET ?? "eduparque-e2e-secret-with-at-least-32-characters" },
+    env: {
+      AUTH_SECRET: process.env.AUTH_SECRET ?? "eduparque-e2e-secret-with-at-least-32-characters",
+      DATABASE_URL: e2eDatabaseUrl,
+    },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

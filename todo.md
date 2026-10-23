@@ -1,6 +1,6 @@
 # Migração gratuita do EduParque — passo a passo
 
-Atualizado em 21/10/2026. O runbook detalhado está em [docs/VERCEL_FREE_MIGRATION.md](docs/VERCEL_FREE_MIGRATION.md).
+Atualizado em 23/10/2026. O runbook detalhado está em [docs/VERCEL_FREE_MIGRATION.md](docs/VERCEL_FREE_MIGRATION.md).
 
 ## Como usar este checklist
 
@@ -13,9 +13,9 @@ Atualizado em 21/10/2026. O runbook detalhado está em [docs/VERCEL_FREE_MIGRATI
 
 ## Próxima ação
 
-1. `VOCÊ` Confirmar se também possui acesso administrativo ao projeto Neon atual em São Paulo, que contém o banco principal.
-2. `VOCÊ` Conferir no painel desse projeto os quatro itens da seção 3, sem compartilhar segredos.
-3. `EU` Revisar essa evidência e conduzir a preparação do Neon de Preview e do Object Storage, uma etapa por vez.
+1. `JUNTOS` Validar CRUD, publicação, remix, favoritos e jogos no Preview.
+2. `JUNTOS` Validar imagem e áudio por URL HTTPS externa.
+3. `JUNTOS` Validar uploads reais de imagem e áudio pelas telas do Preview.
 
 ## 0. Estado atual — concluído localmente
 
@@ -28,101 +28,146 @@ Atualizado em 21/10/2026. O runbook detalhado está em [docs/VERCEL_FREE_MIGRATI
 - [x] `EU` Substituí `/tmp` das equipes por persistência durável e limpeza diária.
 - [x] `EU` Criei migrations aditivas, inventário e migração de mídias sem exclusão da origem.
 - [x] `EU` Criei roteiro de rollback e verificação de Preview/cold start/soak.
+- [x] `EU` Substituí Google OAuth/SMTP pelo login convencional do protótipo, com senha protegida, bloqueio temporário e administração sem expor a senha.
 - [x] `EU` Executei 135/135 testes unitários/integração, 9/9 E2E, lint, typecheck e build Webpack.
 - [x] `EU` Não provisionei serviços, não usei segredos externos e não publiquei Preview ou produção.
 
 ## 1. Resolver os dois gates antes de criar infraestrutura
 
 - [x] `VOCÊ` Confirmou que o EduParque é elegível ao Vercel Hobby: “Hobby elegível: sim” em 21/10/2026.
-- [x] `VOCÊ` Confirmou que somente Google OAuth precisa existir em produção.
-  - Magic Link por e-mail não será usado; as variáveis `EMAIL_*` devem permanecer ausentes.
-- [x] `EU` Registrei que a atualização de Auth.js/Nodemailer não faz parte do escopo atual porque Magic Link ficará desabilitado.
-  - Os quatro alertas `high` transitivos continuam documentados como risco residual e serão reavaliados antes da produção.
-- [x] `JUNTOS` Decisão de autenticação definida para o Preview: somente Google OAuth.
+- [x] `VOCÊ` Retirou Google OAuth do escopo porque a configuração exigiria forma de pagamento no Google Cloud Console.
+- [x] `JUNTOS` Decisão de autenticação revisada em 23/10/2026: login convencional por usuário/e-mail e senha para o protótipo.
+- [x] `EU` Removeu Google OAuth, Magic Link e o acesso de desenvolvimento sem senha; o protótipo não terá cadastro público.
 
 ## 2. Reunir informações sem compartilhar segredos
 
 - [x] `VOCÊ` Confirmou que ainda não possui domínio personalizado nem alias de Preview.
   - Produção e Preview usarão inicialmente os hostnames `*.vercel.app` gerados pela Vercel.
   - Os nomes exatos serão registrados somente depois que o projeto e o Preview existirem.
-  - Depois disso, o callback Google será configurado como `https://<hostname-exato>/api/auth/callback/google`.
-- [x] `VOCÊ` Confirmou que o provider de login será Google OAuth; SMTP não é aplicável.
-- [x] `VOCÊ` Confirmou acesso ao novo projeto Neon, à Vercel e à configuração Google OAuth.
-- [ ] `VOCÊ` Confirmar acesso administrativo ao projeto Neon atual em São Paulo, que não pode ser substituído.
-- [ ] `VOCÊ` Identificar no ambiente atual, sem compartilhar credenciais:
-  - provider de mídia de produção: `local` ou S3 compatível;
-  - localização lógica das mídias antigas.
+  - Login convencional não exige callback nem configuração no Google Cloud.
+- [x] `VOCÊ` Confirmou que Google OAuth e SMTP não serão usados no protótipo.
+- [x] `VOCÊ` Confirmou acesso ao novo projeto Neon e à Vercel; acesso ao Google Cloud deixou de ser necessário.
+- [x] `VOCÊ` Confirmou acesso administrativo ao projeto Neon atual em São Paulo, que não pode ser substituído.
+- [x] `VOCÊ` Identificou a situação das mídias no ambiente atual, sem compartilhar credenciais:
+  - o provider de mídia de produção não é aplicável, pois o EduParque não está publicado;
+  - não existem mídias de produção antigas para migrar.
 - [x] `EU` Conferi o estado local sem ler segredos:
   - desenvolvimento e Docker usam `STORAGE_DRIVER=local` por padrão;
-  - `storage/` contém artefatos locais de desenvolvimento/teste, o que não comprova o provider usado em produção;
-  - o provider e a localização das mídias de produção continuam pendentes até a conferência do ambiente atual;
-  - o repositório ainda não está vinculado localmente à Vercel e as CLIs Vercel/Neon não estão instaladas.
+  - `storage/` contém somente artefatos locais de desenvolvimento/teste e não há storage de produção a migrar;
+  - naquele momento, o repositório ainda não estava vinculado localmente à Vercel; o vínculo foi concluído depois, na seção 5.
 - [ ] `VOCÊ` Configurar segredos diretamente nos painéis ou em arquivo local ignorado pelo Git quando chegarmos às etapas correspondentes.
 - [x] `EU` Até aqui, conferi somente nomes de variáveis, origens e permissões; nenhum valor secreto foi lido, impresso ou versionado.
 
 ## 3. Proteger o PostgreSQL atual
 
-- [ ] `VOCÊ` No Neon atual, confirmar visualmente:
+- [x] `VOCÊ` No Neon atual, confirmou visualmente em 21/10/2026:
   - região São Paulo;
   - plano sem cobrança;
   - endpoint de produção pooled, com `-pooler` no hostname;
   - uso atual de armazenamento e compute dentro da franquia.
-- [ ] `VOCÊ` Fazer backup lógico do banco e guardar fora do repositório.
-- [ ] `VOCÊ` Criar uma branch isolada do banco para Preview.
-- [ ] `VOCÊ` Configurar a URL pooled dessa branch somente no ambiente Preview.
-- [ ] `EU` Validar conexão, schema e migrations na branch de Preview.
-- [ ] `EU` Confirmar que a `DATABASE_URL` de produção não foi trocada nem teve sua região alterada.
+  - compute: 0,52 CU-hours;
+  - armazenamento: 33,14 MB;
+  - histórico: 672,81 kB;
+  - transferência de rede: 3,1 MB.
+- [x] `VOCÊ` Fez backup lógico do banco em 21/10/2026 e guardou fora do repositório.
+  - formato custom do PostgreSQL 18, leitura validada com `pg_restore` e integridade SHA-256 conferida;
+  - arquivo e checksum protegidos com permissão `600` em `/home/caio/Documents/EduParque-backups/`.
+- [x] `VOCÊ` Criou a branch isolada `preview` a partir da branch `production` em 21/10/2026.
+  - o diálogo `Connect` oferece endpoint pooled com `-pooler`; a interface não exibiu detalhes separados do compute.
+- [x] `VOCÊ` Configurou a URL pooled dessa branch somente no ambiente Preview.
+- [x] `EU` Validou em modo somente leitura a conexão, o schema e o estado das migrations na branch de Preview em 23/10/2026.
+  - conexão pooled em São Paulo e endpoint distinto de produção;
+  - 16 tabelas públicas; migrations `0000` a `0003` registradas;
+  - migrations `0004` e `0005` pendentes, com todo o histórico existente anterior a `0004`.
+- [x] `EU` Confirmou que a `DATABASE_URL` local de produção não foi trocada e continua pooled em São Paulo.
 - [ ] `JUNTOS` Ensaiar a restauração do backup antes de qualquer alteração em produção.
 
 ## 4. Criar o Object Storage gratuito e isolado
 
-- [ ] `VOCÊ` No novo projeto Neon ao qual já possui acesso, confirmar que ele é independente do banco principal, está no plano Free e usa `aws-us-east-1`.
+- [x] `VOCÊ` Confirmou em 21/10/2026 que o novo projeto Neon é independente do banco principal, está no plano Free e usa `aws-us-east-1`.
   - Se qualquer item não conferir: parar antes de criar bucket ou credenciais; não criar um projeto duplicado sem revisar a situação.
-- [ ] `VOCÊ` Confirmar que não há trial, cartão, upgrade ou cobrança por excedente habilitada.
-- [ ] `VOCÊ` Criar o bucket privado de mídias; leitura pública deve permanecer desativada.
-- [ ] `VOCÊ` Criar uma branch de storage para Preview, separada da produção.
-- [ ] `VOCÊ` Gerar credenciais S3 distintas para Preview e produção.
-- [ ] `EU` Conferir endpoint HTTPS, região, path-style e privacidade sem expor credenciais.
-- [ ] `EU` Validar que Preview e produção não compartilham permissão de escrita.
+- [x] `VOCÊ` Confirmou que não há trial, cartão, upgrade ou cobrança por excedente habilitada.
+- [x] `VOCÊ` Criou o bucket privado `eduparque-media` em 21/10/2026; acesso público/anônimo permanece desativado pelo nível `Private`.
+- [x] `VOCÊ` Criou a branch de storage `preview` a partir de `production` em 21/10/2026.
+  - o bucket `eduparque-media` aparece na branch `preview` e permanece `Private`.
+- [x] `JUNTOS` Criou em 23/10/2026 o bucket privado `eduparque-media-preview`, exclusivo da branch `preview`.
+  - o bucket herdado `eduparque-media` foi preservado sem alterações depois que o Neon recusou `PutBucketCors` nele;
+  - o bucket exclusivo evita alterar qualquer configuração de `production`.
+- [x] `VOCÊ` Guardou em arquivos privados separados as configurações S3 de Preview e produção.
+  - o Neon forneceu endpoints distintos e herdou a mesma credencial na branch filha, conforme seu modelo de lineage;
+  - os arquivos estão fora do repositório e protegidos com permissão `600`.
+- [x] `EU` Conferi endpoint HTTPS, região configurada, path-style e privacidade sem expor credenciais.
+- [x] `EU` Validou em 23/10/2026 que Preview e produção não compartilham a visão de escrita.
+  - um objeto temporário gravado em `preview` ficou ausente em `production` e foi removido após o teste.
 
 ## 5. Preparar o projeto Vercel sem publicar produção
 
-- [ ] `VOCÊ` Criar ou vincular o projeto em uma conta Hobby elegível, sem iniciar Pro trial e sem cadastrar cobrança.
+- [x] `VOCÊ` Criou e vinculou em 23/10/2026 o projeto vazio `eduparque` na conta pessoal Hobby `caio-dev4`, sem iniciar Pro trial, cadastrar cobrança ou criar deployment.
+  - vínculo local feito por Vercel CLI; `.vercel/` permanece ignorado pelo Git;
+  - `.env.local` gerado pela CLI está ignorado e protegido com permissão `600`.
   - Se a interface exigir um deploy de produção para concluir a importação: parar e não confirmar.
 - [ ] `VOCÊ` Dar autorização explícita somente para gerar um Preview.
-- [ ] `VOCÊ` Configurar no Preview, diretamente na Vercel:
+- [x] `EU` Configurou em 23/10/2026, diretamente no ambiente Preview da Vercel e após autorização explícita:
   - `DATABASE_URL` da branch pooled de Preview;
   - `AUTH_SECRET`;
   - `AUTH_TRUST_HOST=true`;
   - `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`;
-  - `DEV_AUTH_ENABLED=false`;
-  - `AUTH_GOOGLE_ID` e `AUTH_GOOGLE_SECRET`;
-  - nenhuma variável `EMAIL_*`;
+  - nenhuma variável de Google OAuth, SMTP ou senha de usuário;
   - `CRON_SECRET`;
   - `STORAGE_DRIVER=s3`;
   - `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET` e credenciais da branch de Preview;
   - TTLs opcionais descritos em `.env.example`.
-- [ ] `EU` Revisar as configurações Node 22, `gru1`, Fluid Compute e cron diário.
-- [ ] `EU` Gerar o Preview sem `--prod`, somente depois da autorização acima.
-- [ ] `VOCÊ` Depois que o alias estável existir, configurar CORS somente para os domínios exatos de Preview e produção:
+  - 12 variáveis confirmadas por nome, ambiente e tipo; nenhum valor foi exibido ou cadastrado em Production.
+- [x] `EU` Revisou e corrigiu em 23/10/2026 as configurações antes de qualquer deployment:
+  - projeto Vercel alterado de Node `24.x` para `22.x` e de Framework `Other` para `Next.js`;
+  - `vercel.json` confirmado com região `gru1`, Fluid Compute e cron diário às 03:17 UTC.
+- [x] `EU` Gerou em 23/10/2026 o primeiro Preview após autorização explícita, sem `--prod`.
+  - deployment `dpl_DS6JZRXLzSpR6DDgn94exDk3ep1c` confirmado com alvo `preview` e estado `Ready`;
+  - hostname: `https://eduparque-cg8wcuyc3-caio-dev4.vercel.app`;
+  - build Turbopack e TypeScript passaram; Functions foram geradas em `gru1`;
+  - `/api/health` retornou `{"status":"ok"}` e `/login` retornou HTTP 200 usando o bypass autenticado da Vercel.
+  - um deployment manual separado com alvo `production`, sem variáveis de Production e `/api/health` 503, foi identificado e não foi tratado como Preview válido;
+  - esse deployment de Production foi removido com autorização em 23/10/2026; o alias de Production passou a responder 404 e o Preview permaneceu `Ready` com health `ok`.
+- [x] `EU` Criou o alias estável `https://eduparque-preview-caio-dev4.vercel.app` apontando para o deployment válido de Preview.
+- [x] `VOCÊ` Criou uma credencial com `storage:read` e `storage:write` diretamente na branch de storage `preview` em 23/10/2026.
+  - a nova credencial foi confirmada como diferente da credencial de `production`, sem exibir seus valores;
+  - ela lista, localiza e lê o CORS do bucket herdado, mas `PutBucketCors` ainda responde `NoSuchBucket` somente ao alterar o CORS;
+  - três tentativas compatíveis com S3 falharam sem modificar a regra atual, que permanece com curingas;
+  - não rotacionar nem substituir a credencial de `production`.
+- [x] `EU` Atualizou somente as variáveis de Preview da Vercel para a credencial própria e o bucket `eduparque-media-preview`.
+- [x] `EU` Configurou no bucket exclusivo de Preview o CORS somente para o hostname estável:
   - métodos `GET`, `HEAD` e `PUT`;
   - headers `content-type` e `if-none-match`;
   - sem curingas `*`.
-- [ ] `EU` Conferir o CORS por preflight sem expor credenciais.
-- [ ] `EU` Confirmar que nenhuma Function na Vercel recebe ou devolve binários de mídia.
+- [x] `EU` Conferiu o CORS por preflight sem expor credenciais.
+  - origem autorizada recebeu HTTP 200 e o hostname exato;
+  - origem externa recebeu HTTP 403 sem `Access-Control-Allow-Origin`;
+  - acesso anônimo ao objeto recebeu HTTP 403.
+- [x] `EU` Confirmou pelo fluxo implementado que as Functions geram URLs pré-assinadas e não recebem nem devolvem os binários de mídia.
 
 ## 6. Aplicar e validar o Preview
 
-- [ ] `EU` Executar as migrations `0004` e `0005` somente na branch de Preview.
+- [x] `EU` Executou as migrations `0004`, `0005` e `0006` somente na branch de banco `preview` em 23/10/2026, após autorização explícita.
+  - os hashes das três migrations aparecem no histórico da branch;
+  - `temporary_team_images`, `media_assets.upload_status`, `auth_login_attempts`, `users.password_hash` e `users.auth_version` foram confirmados em leitura somente;
+  - nenhuma migration foi aplicada na branch `production`.
+- [x] `JUNTOS` Criou a primeira conta administradora na branch `preview` em 23/10/2026, com senha digitada de forma oculta no terminal e nunca compartilhada no chat.
 - [ ] `EU` Executar novamente no Preview:
   - lint e typecheck;
   - testes unitários e de integração;
   - E2E;
   - build Turbopack da Vercel.
-- [ ] `JUNTOS` Validar login, logout e persistência da sessão após nova Function/cold start.
+- [x] `JUNTOS` Validou em 23/10/2026 no Preview o login convencional, o acesso a `/admin/users` e o logout.
+- [x] `EU` Publicou em 23/10/2026 um novo deployment somente de Preview após a troca do bucket.
+  - deployment `dpl_7Zk6Yo6Qzyvsni8eHdNGgn8DsNt6`, alvo `preview`, estado `Ready`;
+  - build Turbopack e TypeScript passaram e as Functions foram geradas em `gru1`;
+  - o alias estável foi atualizado e `/api/health` retornou `{"status":"ok"}`.
+- [ ] `JUNTOS` Validar a persistência da sessão após nova Function/cold start.
 - [ ] `JUNTOS` Validar CRUD, publicação, remix, favoritos e os jogos existentes.
 - [ ] `JUNTOS` Adicionar imagem e áudio por URL HTTPS externa e confirmar que o servidor não faz fetch.
-- [ ] `EU` Testar upload real válido de exatamente 5 MiB.
+- [x] `EU` Testou upload direto válido de exatamente 5 MiB por URL pré-assinada em 23/10/2026.
+  - PUT retornou HTTP 200, tamanho de 5.242.880 bytes e MIME foram confirmados;
+  - a resposta CORS trouxe o hostname exato do Preview e o objeto temporário foi removido.
 - [ ] `EU` Confirmar rejeição de 5 MiB + 1 byte, MIME falso e arquivo com assinatura inválida.
 - [ ] `EU` Confirmar PUT direto para o bucket e GET por redirect para URL assinada curta.
 - [ ] `EU` Confirmar expiração da URL e ausência de URL assinada persistida no banco.
@@ -156,7 +201,7 @@ Atualizado em 21/10/2026. O runbook detalhado está em [docs/VERCEL_FREE_MIGRATI
 
 - [ ] `EU` Entregar relatório com testes, métricas, riscos e comparação dos inventários.
 - [ ] `JUNTOS` Confirmar que banco e Object Storage estão abaixo de 70% das franquias.
-- [ ] `JUNTOS` Confirmar que o risco do Nodemailer foi resolvido ou que Magic Link está desabilitado e Google OAuth validado.
+- [ ] `JUNTOS` Confirmar o login convencional, o bloqueio por tentativas e a invalidação após redefinição de senha.
 - [ ] `JUNTOS` Revisar o rollback completo em [docs/VERCEL_FREE_MIGRATION.md](docs/VERCEL_FREE_MIGRATION.md).
 - [ ] `VOCÊ` Registrar decisão final de go/no-go.
 - [ ] `VOCÊ` Se for go, dar autorização explícita e inequívoca para deploy de produção.

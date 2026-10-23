@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { registerTeacher } from "./auth-helper";
 
 test("visitante e identificado como anonimo", async ({ page }) => {
   await page.goto("/");
@@ -6,22 +7,17 @@ test("visitante e identificado como anonimo", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Entrar" })).toBeVisible();
 });
 
-test("acesso local de desenvolvimento cria uma sessao autenticada", async ({ page }) => {
-  await page.goto("/login");
-  await expect(page.getByText("Acesso local de desenvolvimento")).toBeVisible();
-  await page.getByLabel("Nome").fill("Professor E2E");
-  await page.getByLabel("E-mail").fill("professor-e2e@eduparque.local");
-  await page.getByRole("button", { name: "Entrar localmente" }).click();
-  await expect(page.getByText(/Você está autenticado\. professor-e2e@eduparque\.local/)).toBeVisible();
-  await page.getByRole("link", { name: "Minhas atividades", exact: true }).click();
+test("cadastro por convite cria uma sessao autenticada", async ({ page }) => {
+  const teacher = await registerTeacher(page, "professor-e2e");
+  await page.goto("/");
+  await expect(page.getByText(`Você está autenticado. ${teacher.email}`)).toBeVisible();
+  await page.getByRole("link", { name: "Ver minhas atividades", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Minhas atividades" })).toBeVisible();
 });
 
 test("professor cria e reabre conteudo pelo editor visual", async ({ page }) => {
-  await page.goto("/login");
-  await page.getByLabel("Nome").fill("Professor Editor E2E");
-  await page.getByLabel("E-mail").fill("editor-e2e@eduparque.local");
-  await page.getByRole("button", { name: "Entrar localmente" }).click();
+  await registerTeacher(page, "editor-e2e");
+  await page.goto("/");
   await page.getByRole("button", { name: "Criar atividade" }).click();
   await expect(page.getByRole("heading", { name: "Como você quer jogar?" })).toBeVisible();
   await page.getByRole("button", { name: "Continuar para conteúdo" }).click();

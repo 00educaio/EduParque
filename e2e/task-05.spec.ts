@@ -1,12 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { registerTeacher } from "./auth-helper";
 
 test("Group Sort, Unscramble e Team Grid executam no SessionShell compartilhado", async ({ page }) => {
   test.setTimeout(90_000);
-  await page.goto("/login");
-  await page.getByLabel("Nome").fill("Professor Task 05");
-  await page.getByLabel("E-mail").fill(`task-05-${Date.now()}@eduparque.local`);
-  await page.getByRole("button", { name: "Entrar localmente" }).click();
-  await expect(page.getByText(/Você está autenticado\./)).toBeVisible();
+  await registerTeacher(page, "task-05");
 
   const source = await page.evaluate(async () => {
     async function json(url: string, init: RequestInit) {

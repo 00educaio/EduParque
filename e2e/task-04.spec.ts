@@ -1,12 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { registerTeacher } from "./auth-helper";
 
 test("Quiz, Matching e Roleta compartilham Activity, renderer e SessionShell", async ({ page }) => {
   test.setTimeout(120_000);
-  await page.goto("/login");
-  await page.getByLabel("Nome").fill("Professor Task 04");
-  await page.getByLabel("E-mail").fill(`task-04-${Date.now()}@eduparque.local`);
-  await page.getByRole("button", { name: "Entrar localmente" }).click();
-  await expect(page.getByText(/Você está autenticado\./)).toBeVisible();
+  await registerTeacher(page, "task-04");
 
   const source = await page.evaluate(async () => {
     async function json(url: string, init: RequestInit) {
