@@ -97,7 +97,15 @@ export async function beginTemporaryTeamImageUpload(input: { sessionId: string; 
       expiresInSeconds: getEnv().MEDIA_UPLOAD_URL_TTL_SECONDS,
       metadata: { "upload-id": id },
     });
-    return { id, uploadUrl, uploadHeaders: { "Content-Type": contentType, "If-None-Match": "*" } };
+    return {
+      id,
+      uploadUrl,
+      uploadHeaders: {
+        "Content-Type": contentType,
+        "If-None-Match": "*",
+        "x-amz-meta-upload-id": id,
+      },
+    };
   } catch (error) {
     await db.delete(temporaryTeamImages).where(eq(temporaryTeamImages.id, id));
     throw error;

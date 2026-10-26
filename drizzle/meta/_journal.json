@@ -57,6 +57,13 @@
       "when": 1792783490871,
       "tag": "0007_harsh_human_fly",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793022716423,
+      "tag": "0008_remove_legacy_storage_fk",
+      "breakpoints": true
     }
   ]
 }

@@ -61,7 +61,7 @@ A CSP permite imagem/áudio HTTPS externo, mas `connect-src` fica restrito ao pr
         "https://eduparque-preview.example.org"
       ],
       "AllowedMethods": ["GET", "HEAD", "PUT"],
-      "AllowedHeaders": ["content-type", "if-none-match"],
+      "AllowedHeaders": ["content-type", "if-none-match", "x-amz-meta-upload-id"],
       "ExposeHeaders": ["etag"],
       "MaxAgeSeconds": 300
     }

@@ -99,7 +99,11 @@ export async function beginMediaUpload(input: BeginMediaUploadInput) {
     return {
       asset,
       uploadUrl,
-      uploadHeaders: { "Content-Type": validated.mimeType, "If-None-Match": "*" },
+      uploadHeaders: {
+        "Content-Type": validated.mimeType,
+        "If-None-Match": "*",
+        "x-amz-meta-upload-id": id,
+      },
       expiresAt: new Date(Date.now() + env.MEDIA_UPLOAD_URL_TTL_SECONDS * 1_000),
     };
   } catch (error) {
