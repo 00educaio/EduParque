@@ -1,4 +1,4 @@
-export const MEMORY_MISMATCH_DELAY_MS = 5_000;
+export const MEMORY_MISMATCH_DELAY_MS = 3_000;
 
 export type MemoryTurnPhase =
   | "SHUFFLING"

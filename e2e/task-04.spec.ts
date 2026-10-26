@@ -68,7 +68,7 @@ test("Quiz, Matching e Roleta compartilham Activity, renderer e SessionShell", a
   for (let index = 1; index < await cards.count(); index += 1) {
     await cards.nth(index).click();
     if (await page.getByText("Par correto!").isVisible()) break;
-    const mismatch = page.getByText("Não combinou. As cartas serão fechadas em 5 segundos.");
+    const mismatch = page.getByText("Não combinou. As cartas serão fechadas em 3 segundos.");
     await expect(mismatch).toBeVisible();
     await expect(mismatch).not.toBeVisible({ timeout: 7_000 });
     await cards.first().click();

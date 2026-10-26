@@ -26,7 +26,7 @@ describe("memory turn state machine", () => {
     expect(beginNextMemoryTurn(match.state).phase).toBe("WAITING_FIRST_CARD");
   });
 
-  it("mantém duas cartas incorretas abertas por cinco segundos e depois limpa a tentativa", () => {
+  it("mantém duas cartas incorretas abertas por três segundos e depois limpa a tentativa", () => {
     const first = selectMemoryCard(initial(), "a:left", cards);
     if (!first.accepted) throw new Error("primeira carta deveria ser aceita");
     const checking = selectMemoryCard(first.state, "b:left", cards);

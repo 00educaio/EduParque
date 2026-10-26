@@ -198,7 +198,7 @@ export function MatchingTemplate({ mode, content, config, sessionId, state, disa
     setFeedback(outcome === "match"
       ? { correct: true, text: "Par correto! Passando a vez." }
       : outcome === "mismatch"
-        ? { correct: false, text: "Não combinou. As cartas serão fechadas em 5 segundos." }
+        ? { correct: false, text: "Não combinou. Fechando as cartas..." }
         : null);
 
     let nextTurn = transition.state;
