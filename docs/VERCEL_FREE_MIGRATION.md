@@ -1,6 +1,6 @@
 # Migração do EduParque para Vercel Hobby + Neon Free
 
-Status em 20/10/2026: implementação local concluída e separada na branch `migration/vercel-free`. Nenhum projeto, bucket ou recurso pago foi criado; nenhuma credencial externa foi usada; nenhum Preview ou deploy de produção foi publicado.
+Status atualizado em 23/10/2026: implementação commitada na branch `migration/vercel-free`. O projeto Vercel possui dois Previews `Ready`, mas eles ainda não contêm a rota `/register`; nenhum deployment de Production está listado. Para os comandos operacionais atuais, consulte [CADASTRO_E_DEPLOY.md](./CADASTRO_E_DEPLOY.md).
 
 ## Gate de viabilidade
 

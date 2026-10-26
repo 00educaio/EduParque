@@ -50,6 +50,8 @@ Os testes com `RUN_DB_TESTS=1` requerem PostgreSQL migrado. A suíte cobre schem
 
 ## Docker e deploy
 
+Para operar o cadastro por convite e publicar Preview/Production na Vercel, siga o runbook [Cadastro por convite e deploy](./docs/CADASTRO_E_DEPLOY.md).
+
 Para validar o ambiente completo localmente:
 
 ```bash
