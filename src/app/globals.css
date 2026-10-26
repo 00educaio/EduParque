@@ -457,7 +457,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .content-empty > p { color: var(--muted); }
 .content-type-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 24px; }
 .content-type-grid button { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; border: 1px solid var(--border-strong); border-radius: 16px; padding: 17px; background: white; color: var(--foreground); text-align: left; cursor: pointer; transition: border-color var(--motion-fast), background-color var(--motion-fast), transform var(--motion-fast); }
-.content-type-grid button:hover { border-color: var(--primary); background: white; transform: translateY(-2px); }
+.content-type-grid button:hover:not(:disabled) { border-color: var(--primary); background: white; transform: translateY(-2px); }
+.content-type-grid button:disabled { opacity: .5; cursor: not-allowed; }
 .content-type-grid button.is-recommended { border-width: 2px; border-color: var(--brand-blue); background: white; box-shadow: 0 8px 24px rgba(24, 62, 255, .1); }
 .content-type-grid button small { color: var(--primary); font-size: .6rem; font-weight: 950; letter-spacing: .1em; }
 .content-type-grid button span { color: var(--muted); font-size: .78rem; }
@@ -529,6 +530,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .add-block { border: 1px dashed var(--border-strong); border-radius: 18px; padding: 17px; }
 .add-block > div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .add-block button { border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; background: white; color: var(--primary-dark); font-size: .75rem; font-weight: 800; cursor: pointer; }
+.add-block button:disabled { opacity: .45; cursor: not-allowed; }
 .conversion-notice { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; border: 1px solid #e6ca8b; border-radius: 16px; padding: 15px; background: #fff8e8; color: #68490d; }
 .advanced-json { border-top: 1px solid var(--line); padding-top: 15px; color: var(--muted); }
 .advanced-json summary { font-size: .78rem; font-weight: 800; cursor: pointer; }
