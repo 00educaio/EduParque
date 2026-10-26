@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { categorizedItems, groupSortCategories } from "@/modules/game-templates/domain/gameplay";
+import { canScoreGroupSortBoard, categorizedItems, groupSortCategories } from "@/modules/game-templates/domain/gameplay";
 import { ContentMedia } from "@/modules/game-templates/ui/content-media";
 import { configRecord, type TemplateRuntimeProps } from "@/modules/game-templates/ui/template-runtime";
 
@@ -18,6 +18,7 @@ export function GroupSortTemplate({ mode, content, config, sessionId, state, dis
   const runtime = configRecord(state?.template.state);
   const persistedAssignments = stringRecord(runtime.groupSortAssignments);
   const persistedResults = stringRecord(runtime.groupSortResults);
+  const boardChecked = runtime.groupSortChecked === true;
   const [previewAssignments, setPreviewAssignments] = useState<Record<string, string>>({});
   const [previewResults, setPreviewResults] = useState<Record<string, string>>({});
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -41,12 +42,12 @@ export function GroupSortTemplate({ mode, content, config, sessionId, state, dis
   }
 
   async function checkBoard() {
-    if (Object.keys(assignments).length !== items.length || disabled) return;
+    if (Object.keys(assignments).length !== items.length || disabled || boardChecked) return;
     const correct = items.every((item) => assignments[item.id] === item.categoryId);
     setFeedback({ correct, text: correct ? "Tudo certo! Cada item está em seu grupo." : "Alguns itens estão no grupo errado. Ajuste e tente novamente." });
     if (mode === "preview") return;
     if (!send || !state) return;
-    await send({ type: "updateTemplateState", state: { ...state.template.state, groupSortAssignments: assignments, groupSortChecked: true }, award: correct ? { teamId: state.teams[state.activeTeamIndex]!.id, suggestedPoints: state.scoring.defaultPoints } : undefined });
+    await send({ type: "updateTemplateState", state: { ...state.template.state, groupSortAssignments: assignments, groupSortChecked: true }, award: canScoreGroupSortBoard(boardChecked, correct) ? { teamId: state.teams[state.activeTeamIndex]!.id, suggestedPoints: state.scoring.defaultPoints } : undefined });
   }
 
   async function chooseCategory(categoryId: string) {
@@ -79,6 +80,6 @@ export function GroupSortTemplate({ mode, content, config, sessionId, state, dis
     <div className="group-sort-bank" aria-label="Itens sem grupo">{unassigned.map((item) => <button key={item.id} draggable={!disabled} className={selectedItemId === item.id ? "is-selected" : ""} onDragStart={(event) => event.dataTransfer.setData("text/plain", item.id)} onClick={() => setSelectedItemId(selectedItemId === item.id ? null : item.id)}><ContentMedia media={item.media} />{item.text}</button>)}</div>
     <div className="group-sort-board">{categories.map((category) => <section key={category.id} className="group-sort-column" onDragOver={(event) => event.preventDefault()} onDrop={(event) => assign(event.dataTransfer.getData("text/plain"), category.id)}><button className="group-sort-column__title" disabled={disabled || !selectedItemId} onClick={() => selectedItemId && assign(selectedItemId, category.id)}><ContentMedia media={category.media} /><span>{category.name}</span></button><div>{items.filter((item) => assignments[item.id] === category.id).map((item) => <button key={item.id} draggable={!disabled} onDragStart={(event) => event.dataTransfer.setData("text/plain", item.id)} onClick={() => setSelectedItemId(item.id)}>{item.text}</button>)}</div></section>)}</div>
     {feedback && <p className={`template-feedback ${feedback.correct ? "is-success" : "is-error"}`} role="status">{feedback.text}</p>}
-    <button className="button template-primary-action" disabled={disabled || unassigned.length > 0} onClick={() => void checkBoard()}>Verificar grupos</button>
+    <button className="button template-primary-action" disabled={disabled || unassigned.length > 0 || boardChecked} onClick={() => void checkBoard()}>{boardChecked ? "Grupos verificados" : "Verificar grupos"}</button>
   </section>;
 }

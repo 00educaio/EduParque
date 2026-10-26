@@ -59,29 +59,30 @@ export const sessionStateSchema = z.object({
 });
 
 const pointsSchema = z.number().int().min(0).max(10_000);
+const sequenceGuardSchema = { expectedSequence: z.number().int().min(0).optional() };
 
 export const sessionCommandSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("startSession") }),
-  z.object({ type: z.literal("next") }),
-  z.object({ type: z.literal("reveal") }),
-  z.object({ type: z.literal("awardPoints"), teamId: z.string().uuid(), points: pointsSchema.optional(), suggestedPoints: pointsSchema.optional() }),
-  z.object({ type: z.literal("removePoints"), teamId: z.string().uuid(), points: pointsSchema }),
-  z.object({ type: z.literal("renameTeam"), teamId: z.string().uuid(), name: z.string().trim().min(1).max(40) }),
-  z.object({ type: z.literal("pause") }),
-  z.object({ type: z.literal("resume") }),
-  z.object({ type: z.literal("undo") }),
-  z.object({ type: z.literal("finish") }),
+  z.object({ type: z.literal("startSession"), ...sequenceGuardSchema }),
+  z.object({ type: z.literal("next"), ...sequenceGuardSchema }),
+  z.object({ type: z.literal("reveal"), ...sequenceGuardSchema }),
+  z.object({ type: z.literal("awardPoints"), teamId: z.string().uuid(), points: pointsSchema.optional(), suggestedPoints: pointsSchema.optional(), ...sequenceGuardSchema }),
+  z.object({ type: z.literal("removePoints"), teamId: z.string().uuid(), points: pointsSchema, ...sequenceGuardSchema }),
+  z.object({ type: z.literal("renameTeam"), teamId: z.string().uuid(), name: z.string().trim().min(1).max(40), ...sequenceGuardSchema }),
+  z.object({ type: z.literal("pause"), ...sequenceGuardSchema }),
+  z.object({ type: z.literal("resume"), ...sequenceGuardSchema }),
+  z.object({ type: z.literal("undo"), ...sequenceGuardSchema }),
+  z.object({ type: z.literal("finish"), ...sequenceGuardSchema }),
   z.object({
     type: z.literal("updateTemplateState"),
     state: z.record(z.string(), z.unknown()),
     award: z.object({ teamId: z.string().uuid(), suggestedPoints: pointsSchema.optional() }).optional(),
     advance: z.boolean().optional(),
     advanceTurn: z.boolean().optional(),
-    expectedSequence: z.number().int().min(0).optional(),
+    ...sequenceGuardSchema,
     finish: z.boolean().optional(),
     restartTimer: z.boolean().optional(),
   }),
-  z.object({ type: z.literal("expireTimer") }),
+  z.object({ type: z.literal("expireTimer"), ...sequenceGuardSchema }),
 ]);
 
 export const sessionEventSchema = z.object({

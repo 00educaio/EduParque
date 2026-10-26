@@ -3,7 +3,9 @@ import { fileTypeFromBuffer } from "file-type";
 const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const AUDIO_MIME_TYPES = new Set(["audio/mpeg", "audio/ogg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/flac"]);
 
-export const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+export const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+export const MAX_MEDIA_BYTES = MAX_AUDIO_BYTES;
 
 export class InvalidMediaError extends Error {
   readonly status = 400;
@@ -26,10 +28,15 @@ function normalizedMimeType(mimeType: string) {
 
 export function validateMediaDeclaration(byteSize: number, declaredMimeType: string): Pick<ValidatedMedia, "kind" | "mimeType"> {
   if (!Number.isInteger(byteSize) || byteSize <= 0) throw new InvalidMediaError("O arquivo esta vazio.");
-  if (byteSize > MAX_MEDIA_BYTES) throw new InvalidMediaError("Imagens e audios podem ter no maximo 5 MiB.");
   const mimeType = normalizedMimeType(declaredMimeType);
-  if (IMAGE_MIME_TYPES.has(mimeType)) return { kind: "image", mimeType };
-  if (AUDIO_MIME_TYPES.has(mimeType)) return { kind: "audio", mimeType };
+  if (IMAGE_MIME_TYPES.has(mimeType)) {
+    if (byteSize > MAX_IMAGE_BYTES) throw new InvalidMediaError("Imagens podem ter no maximo 10 MiB.");
+    return { kind: "image", mimeType };
+  }
+  if (AUDIO_MIME_TYPES.has(mimeType)) {
+    if (byteSize > MAX_AUDIO_BYTES) throw new InvalidMediaError("Audios podem ter no maximo 25 MiB.");
+    return { kind: "audio", mimeType };
+  }
   throw new InvalidMediaError("Somente imagens e audios sao permitidos.");
 }
 

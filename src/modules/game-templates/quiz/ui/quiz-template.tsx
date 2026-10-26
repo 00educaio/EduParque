@@ -34,20 +34,22 @@ export function QuizTemplate({ mode, content, config, sessionId, state, disabled
   const selected = selections[currentQuestion.id] ?? results[currentQuestion.id]?.selectedIds ?? [];
   const result = results[currentQuestion.id];
   const hasMultipleCorrect = currentQuestion.answers.filter((answer) => answer.isCorrect).length > 1;
+  const allowMultiple = template.allowMultiple !== false;
+  const usesMultipleSelection = allowMultiple && hasMultipleCorrect;
   const locked = Boolean(result) || disabled;
 
   function toggle(answerId: string) {
     if (locked) return;
     setSelections((current) => {
       const values = current[currentQuestion.id] ?? [];
-      const next = hasMultipleCorrect ? (values.includes(answerId) ? values.filter((id) => id !== answerId) : [...values, answerId]) : [answerId];
+      const next = usesMultipleSelection ? (values.includes(answerId) ? values.filter((id) => id !== answerId) : [...values, answerId]) : [answerId];
       return { ...current, [currentQuestion.id]: next };
     });
   }
 
   async function check() {
     if (!selected.length || locked) return;
-    const correct = isQuizAnswerCorrect(currentQuestion, selected);
+    const correct = isQuizAnswerCorrect(currentQuestion, selected, allowMultiple);
     const nextResults = { ...results, [currentQuestion.id]: { selectedIds: selected, correct } };
     if (mode === "preview") { setPreviewResults(nextResults); return; }
     if (!send || !state) return;
@@ -59,7 +61,7 @@ export function QuizTemplate({ mode, content, config, sessionId, state, disabled
   }
 
   return <section className="template-game quiz-template" aria-label="Quiz">
-    <header className="template-game__header"><span className="eyebrow">Pergunta {questionIndex + 1} de {questions.length}</span>{hasMultipleCorrect && <span className="template-chip">Selecione todas as corretas</span>}</header>
+    <header className="template-game__header"><span className="eyebrow">Pergunta {questionIndex + 1} de {questions.length}</span>{usesMultipleSelection && <span className="template-chip">Selecione todas as corretas</span>}</header>
     <ContentMedia media={currentQuestion.media} />
     <h2>{currentQuestion.prompt}</h2>
     <div className="quiz-answers">{answers.map((answer, index) => {

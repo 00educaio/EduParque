@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const colorSchema = z.string().regex(/^#[0-9a-f]{6}$/i, "Use uma cor hexadecimal com seis digitos.");
+const optionalHttpsUrlSchema = z.string().max(2_000).url().refine((value) => value.startsWith("https://"), "Use uma URL HTTPS.");
 
 export const themeValuesSchema = z.object({
   primaryColor: colorSchema.default("#047857"),
@@ -8,7 +9,7 @@ export const themeValuesSchema = z.object({
   surfaceColor: colorSchema.default("#ffffff"),
   textColor: colorSchema.default("#0f172a"),
   gradient: z.enum(["sunset", "ocean", "forest"]).nullable().default(null),
-  backgroundImage: z.string().max(2_000).url().nullable().default(null),
+  backgroundImage: optionalHttpsUrlSchema.nullable().default(null),
   fontFamily: z.enum(["sans", "serif", "rounded"]).default("sans"),
   fontScale: z.number().min(0.8).max(1.4).default(1),
   borderRadius: z.number().int().min(0).max(32).default(16),

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { ForbiddenError } from "@/modules/auth/application/authorization";
+import { ForbiddenError, requireUser, UnauthorizedError } from "@/modules/auth/application/authorization";
 import { assertUser } from "@/modules/auth/application/policies";
 import { auth } from "@/modules/auth/infrastructure/auth";
-import { getReadableMedia } from "@/modules/media/application/media-service";
+import { deleteOwnedMedia, getReadableMedia, MediaInUseError } from "@/modules/media/application/media-service";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -31,5 +31,18 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     }
     console.error(error);
     return NextResponse.json({ error: "Nao foi possivel carregar a midia." }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const user = await requireUser();
+    const { id } = await context.params;
+    await deleteOwnedMedia(id, user.id);
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    if (error instanceof UnauthorizedError || error instanceof ForbiddenError || error instanceof MediaInUseError) return NextResponse.json({ error: error.message }, { status: error.status });
+    console.error(error);
+    return NextResponse.json({ error: "Nao foi possivel excluir a midia." }, { status: 500 });
   }
 }

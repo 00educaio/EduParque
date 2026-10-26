@@ -48,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
 
       if (!token.sub || typeof token.authVersion !== "number") return null;
       const currentUser = await getDatabase().db.query.users.findFirst({
-        columns: { authVersion: true, lockedUntil: true },
+        columns: { authVersion: true, lockedUntil: true, role: true },
         where: eq(users.id, token.sub),
       });
       if (
@@ -56,6 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
         currentUser.authVersion !== token.authVersion ||
         (currentUser.lockedUntil !== null && currentUser.lockedUntil.getTime() > Date.now())
       ) return null;
+      token.role = currentUser.role;
       return token;
     },
     session({ session, token }) {

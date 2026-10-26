@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityContent } from "@/shared/domain/content-blocks";
-import { availableWheelItems, categorizedItems, deterministicShuffle, groupSortCategories, isQuizAnswerCorrect, isSequenceCorrect, matchingPairs, quizQuestions, sequenceUnitMode, sequenceUnits, teamGridCards, unscrambleSequences, wheelItems } from "./gameplay";
+import { availableWheelItems, canScoreGroupSortBoard, categorizedItems, deterministicShuffle, groupSortCategories, isQuizAnswerCorrect, isSequenceCorrect, matchingPairs, quizQuestions, sequenceUnitMode, sequenceUnits, teamGridCards, unscrambleSequences, wheelItems } from "./gameplay";
 
 const content: ActivityContent = [
   { type: "prompt-answer", id: "quiz", items: [
@@ -42,6 +42,15 @@ describe("gameplay dos templates", () => {
     expect(isQuizAnswerCorrect(question, ["c", "a"])).toBe(true);
     expect(isQuizAnswerCorrect(question, ["a"])).toBe(false);
     expect(isQuizAnswerCorrect(question, ["a", "b", "c"])).toBe(false);
+    expect(isQuizAnswerCorrect(question, ["a"], false)).toBe(true);
+    expect(isQuizAnswerCorrect(question, ["c"], false)).toBe(true);
+    expect(isQuizAnswerCorrect(question, ["a", "c"], false)).toBe(false);
+  });
+
+  it("pontua o board de grupos apenas na primeira verificacao correta", () => {
+    expect(canScoreGroupSortBoard(false, true)).toBe(true);
+    expect(canScoreGroupSortBoard(true, true)).toBe(false);
+    expect(canScoreGroupSortBoard(false, false)).toBe(false);
   });
 
   it("extrai apenas o conteúdo semântico suportado por cada jogo", () => {

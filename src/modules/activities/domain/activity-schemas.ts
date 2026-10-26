@@ -22,6 +22,11 @@ export const presentationInputSchema = z.object({
   isDefault: z.boolean().default(false),
 });
 
+export const activityEditorSaveSchema = z.object({
+  draft: activityDraftInputSchema,
+  presentations: z.array(presentationInputSchema.extend({ id: z.string().uuid() })).min(1),
+});
+
 export const publishedPresentationSchema = presentationInputSchema.extend({ id: z.string().uuid() });
 
 export const activityRevisionSnapshotSchema = z.object({
@@ -40,4 +45,5 @@ export const activityRevisionSnapshotSchema = z.object({
 
 export type ActivityDraftInput = z.infer<typeof activityDraftInputSchema>;
 export type PresentationInput = z.infer<typeof presentationInputSchema>;
+export type ActivityEditorSaveInput = z.infer<typeof activityEditorSaveSchema>;
 export type ActivityRevisionSnapshot = z.infer<typeof activityRevisionSnapshotSchema>;

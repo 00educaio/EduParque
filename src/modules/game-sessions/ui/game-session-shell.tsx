@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SessionCommand, SessionState } from "@/modules/game-sessions/domain/session";
 import { GameRenderer } from "@/modules/game-templates/ui/game-renderer";
 import type { ThemeValues } from "@/modules/themes/domain/theme-values";
@@ -132,10 +132,16 @@ export function GameSessionShell({ sessionId, title, initialState, initialTeamIm
   const [teamImageTeamIds, setTeamImageTeamIds] = useState(() => new Set(initialTeamImageTeamIds));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const pollEtag = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const response = await fetch(`/api/game-sessions/${sessionId}`);
+    const response = await fetch(`/api/game-sessions/${sessionId}`, {
+      headers: pollEtag.current ? { "If-None-Match": pollEtag.current } : undefined,
+      cache: "no-store",
+    });
+    if (response.status === 304) return;
     if (response.ok) {
+      pollEtag.current = response.headers.get("ETag");
       const result = await response.json() as { state: SessionState; teamImageTeamIds: string[] };
       setState(result.state);
       setTeamImageTeamIds(new Set(result.teamImageTeamIds));
@@ -144,8 +150,25 @@ export function GameSessionShell({ sessionId, title, initialState, initialTeamIm
 
   useEffect(() => {
     if (canControl || state.status === "finished") return;
-    const interval = window.setInterval(() => void refresh(), 2_500);
-    return () => window.clearInterval(interval);
+    let cancelled = false;
+    let timer: number | undefined;
+    const schedule = () => {
+      if (cancelled) return;
+      timer = window.setTimeout(() => void poll(), document.hidden ? 15_000 : 2_500);
+    };
+    const poll = async () => { await refresh(); schedule(); };
+    const visibilityChanged = () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      if (document.hidden) schedule();
+      else void poll();
+    };
+    schedule();
+    document.addEventListener("visibilitychange", visibilityChanged);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", visibilityChanged);
+    };
   }, [canControl, refresh, state.status]);
 
   const send = useCallback(async (command: SessionCommand) => {
@@ -155,7 +178,7 @@ export function GameSessionShell({ sessionId, title, initialState, initialTeamIm
     const response = await fetch(`/api/game-sessions/${sessionId}/commands`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(command),
+      body: JSON.stringify({ ...command, expectedSequence: state.sequence }),
     });
     if (response.ok) {
       const result = await response.json() as { state: SessionState };
@@ -173,7 +196,7 @@ export function GameSessionShell({ sessionId, title, initialState, initialTeamIm
     if (response.status === 409) await refresh();
     setPending(false);
     return undefined;
-  }, [canControl, refresh, sessionId, state.timer.soundEnabled]);
+  }, [canControl, refresh, sessionId, state.sequence, state.timer.soundEnabled]);
 
   const renameTeam = useCallback(async (teamId: string, name: string) => Boolean(await send({ type: "renameTeam", teamId, name })), [send]);
   const syncExpiredTimer = useCallback(() => void refresh(), [refresh]);

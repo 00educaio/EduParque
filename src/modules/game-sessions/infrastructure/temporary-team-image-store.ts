@@ -1,11 +1,11 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, lt, or } from "drizzle-orm";
 import { fileTypeFromBuffer } from "file-type";
 import { getEnv } from "@/shared/infrastructure/config/env";
 import { db } from "@/shared/infrastructure/database/client";
-import { temporaryTeamImages } from "@/shared/infrastructure/database/schema";
+import { gameSessions, temporaryTeamImages } from "@/shared/infrastructure/database/schema";
 import { getStorageProvider } from "@/modules/media/infrastructure/storage";
 
 export const MAX_TEAM_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -189,13 +189,24 @@ export async function deleteTemporaryTeamImages(sessionId: string) {
 }
 
 export async function cleanupExpiredTemporaryTeamImages(now = new Date()) {
-  const expired = await db.select().from(temporaryTeamImages).where(lt(temporaryTeamImages.expiresAt, now)).limit(100);
+  const staleSessionCutoff = new Date(now.getTime() - getEnv().TEAM_IMAGE_TTL_HOURS * 60 * 60_000);
+  const expired = await db.select({ id: temporaryTeamImages.id, storageKey: temporaryTeamImages.storageKey, expiresAt: temporaryTeamImages.expiresAt })
+    .from(temporaryTeamImages)
+    .innerJoin(gameSessions, eq(gameSessions.id, temporaryTeamImages.sessionId))
+    .where(and(
+      lt(temporaryTeamImages.expiresAt, now),
+      or(eq(temporaryTeamImages.uploadStatus, "pending"), eq(gameSessions.status, "finished"), lt(gameSessions.updatedAt, staleSessionCutoff)),
+    )).limit(100);
   const storage = getStorageProvider();
   let deleted = 0;
   for (const row of expired) {
-    await storage.delete(row.storageKey);
-    const removed = await db.delete(temporaryTeamImages).where(and(eq(temporaryTeamImages.id, row.id), lt(temporaryTeamImages.expiresAt, now))).returning({ id: temporaryTeamImages.id });
-    deleted += removed.length;
+    try {
+      await storage.delete(row.storageKey);
+      const removed = await db.delete(temporaryTeamImages).where(and(eq(temporaryTeamImages.id, row.id), lt(temporaryTeamImages.expiresAt, now))).returning({ id: temporaryTeamImages.id });
+      deleted += removed.length;
+    } catch (error) {
+      console.error(`Falha ao limpar imagem temporaria ${row.id}.`, error);
+    }
   }
   return deleted;
 }

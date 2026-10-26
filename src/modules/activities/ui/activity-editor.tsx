@@ -59,21 +59,35 @@ export function ActivityEditor({ activityId, activitySlug, initialDraft, initial
   const [published, setPublished] = useState(initialPublished);
   const [actionError, setActionError] = useState("");
   const initialized = useRef(false);
+  const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
+  const saveSequence = useRef(0);
   const active = presentations.find((item) => item.id === activeId) ?? presentations[0];
   const activeTemplateConfig = active && typeof active.gameConfig.template === "object" && active.gameConfig.template ? active.gameConfig.template as Record<string, unknown> : {};
   const unscrambleLegacyTokenMode = activeTemplateConfig.tokenMode === "character" ? "character" as const : "token" as const;
   const resolvedTheme = useMemo(() => resolveTheme(defaultSystemTheme, active?.themeOverride ?? {}), [active?.themeOverride]);
   const publishableContent = useMemo(() => activityContentSchema.safeParse(draft.content), [draft.content]);
 
-  async function saveNow(nextDraft = draft, nextPresentations = presentations) {
+  function saveNow(nextDraft = draft, nextPresentations = presentations) {
+    const sequence = ++saveSequence.current;
     setSaveState("Salvando");
-    try {
-      const draftResponse = await fetch(`/api/activities/${activityId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(nextDraft) });
-      const presentationResponses = await Promise.all(nextPresentations.map((item) => fetch(`/api/activities/${activityId}/presentations/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) })));
-      if (!draftResponse.ok || presentationResponses.some((response) => !response.ok)) throw new Error();
-      setSaveState("Salvo");
-      return true;
-    } catch { setSaveState("Erro"); return false; }
+    const execute = async () => {
+      try {
+        const response = await fetch(`/api/activities/${activityId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ draft: nextDraft, presentations: nextPresentations }),
+        });
+        if (!response.ok) throw new Error();
+        if (sequence === saveSequence.current) setSaveState("Salvo");
+        return true;
+      } catch {
+        if (sequence === saveSequence.current) setSaveState("Erro");
+        return false;
+      }
+    };
+    const queued = saveQueue.current.then(execute, execute);
+    saveQueue.current = queued;
+    return queued;
   }
 
   useEffect(() => {

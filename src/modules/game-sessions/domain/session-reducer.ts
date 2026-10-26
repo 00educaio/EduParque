@@ -73,6 +73,7 @@ export function restoreSessionState(value: unknown, now = new Date()): SessionSt
 
 export function reduceSession(rawState: SessionState, command: SessionCommand, now = new Date()): { state: SessionState; event: SessionEvent } {
   const state = restoreSessionState(rawState, now);
+  if (command.expectedSequence !== undefined && command.expectedSequence !== state.sequence) throw new InvalidSessionCommandError("A tentativa já foi encerrada por outra ação.");
   let next: SessionState;
   let event: SessionEvent;
 
@@ -138,7 +139,6 @@ export function reduceSession(rawState: SessionState, command: SessionCommand, n
     }
     case "updateTemplateState": {
       assertStatus(state, ["active"]);
-      if (command.expectedSequence !== undefined && command.expectedSequence !== state.sequence) throw new InvalidSessionCommandError("A tentativa já foi encerrada por outra ação.");
       if ((command.advance || command.advanceTurn) && command.finish) throw new InvalidSessionCommandError("A sessão não pode avançar e finalizar na mesma ação.");
       const awardedTeam = command.award ? state.teams.find((team) => team.id === command.award!.teamId) : undefined;
       if (command.award && !awardedTeam) throw new InvalidSessionCommandError("Equipe nao encontrada.");

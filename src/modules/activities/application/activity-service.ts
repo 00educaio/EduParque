@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, max, or, sql } from "drizzle-orm";
 import { db } from "@/shared/infrastructure/database/client";
 import { activities, activityRevisions, favorites, presentations, themes } from "@/shared/infrastructure/database/schema";
 import { activityContentSchema } from "@/shared/domain/content-blocks";
-import { activityDraftInputSchema, activityRevisionSnapshotSchema, presentationInputSchema, type ActivityDraftInput, type ActivityRevisionSnapshot } from "@/modules/activities/domain/activity-schemas";
+import { activityDraftInputSchema, activityEditorSaveSchema, activityRevisionSnapshotSchema, presentationInputSchema, type ActivityDraftInput, type ActivityRevisionSnapshot } from "@/modules/activities/domain/activity-schemas";
 import { defaultSystemTheme, resolveTheme } from "@/modules/themes/domain/theme-values";
 import { getGameTemplate, parseGameConfig } from "@/modules/game-templates";
 
@@ -59,6 +59,55 @@ export async function updateDraft(activityId: string, ownerId: string, input: un
     visibility: parsed.visibility, draftContent: parsed.content, defaultPresentationId: parsed.defaultPresentationId, updatedAt: new Date(),
   }).where(and(eq(activities.id, activityId), eq(activities.ownerId, ownerId))).returning();
   return updated!;
+}
+
+export async function saveActivityEditor(activityId: string, ownerId: string, input: unknown) {
+  const parsed = activityEditorSaveSchema.parse(input);
+  const activity = await getOwnedActivity(activityId, ownerId);
+  const currentIds = new Set(activity.presentations.map((item) => item.id));
+  const submittedIds = new Set(parsed.presentations.map((item) => item.id));
+  if (submittedIds.size !== parsed.presentations.length || currentIds.size !== submittedIds.size || [...currentIds].some((id) => !submittedIds.has(id))) {
+    throw new InvalidActivityError("A lista de apresentacoes esta desatualizada. Recarregue o editor.");
+  }
+  if (!parsed.draft.defaultPresentationId || !submittedIds.has(parsed.draft.defaultPresentationId)) {
+    throw new InvalidActivityError("Selecione uma apresentacao padrao valida.");
+  }
+
+  const normalizedPresentations = parsed.presentations.map((item) => {
+    getGameTemplate(item.templateKey);
+    try {
+      return { ...item, gameConfig: parseGameConfig(item.templateKey, item.gameConfig), isDefault: item.id === parsed.draft.defaultPresentationId };
+    } catch {
+      throw new InvalidActivityError(`A configuracao da apresentacao "${item.name}" e invalida.`);
+    }
+  });
+
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const [updated] = await tx.update(activities).set({
+      title: parsed.draft.title,
+      description: parsed.draft.description,
+      tags: [...new Set(parsed.draft.tags.map((tag) => tag.toLowerCase()))],
+      visibility: parsed.draft.visibility,
+      draftContent: parsed.draft.content,
+      defaultPresentationId: parsed.draft.defaultPresentationId,
+      updatedAt: now,
+    }).where(and(eq(activities.id, activityId), eq(activities.ownerId, ownerId), isNull(activities.deletedAt))).returning();
+    if (!updated) throw new ActivityNotFoundError();
+
+    for (const item of normalizedPresentations) {
+      const [saved] = await tx.update(presentations).set({
+        name: item.name,
+        templateKey: item.templateKey,
+        gameConfig: item.gameConfig,
+        themeOverride: item.themeOverride,
+        isDefault: item.isDefault,
+        updatedAt: now,
+      }).where(and(eq(presentations.id, item.id), eq(presentations.activityId, activityId))).returning({ id: presentations.id });
+      if (!saved) throw new InvalidActivityError("Uma apresentacao foi removida enquanto o editor estava aberto.");
+    }
+    return updated;
+  });
 }
 
 export async function savePresentation(activityId: string, ownerId: string, input: unknown) {

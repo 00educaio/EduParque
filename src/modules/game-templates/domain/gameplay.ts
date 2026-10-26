@@ -46,10 +46,18 @@ export function quizAnswers(question: QuizQuestion, shuffle: boolean, seed: stri
   return shuffle ? deterministicShuffle(question.answers, `${seed}:${question.id}:answers`) : question.answers;
 }
 
-export function isQuizAnswerCorrect(question: QuizQuestion, selectedIds: readonly string[]) {
+export function isQuizAnswerCorrect(question: QuizQuestion, selectedIds: readonly string[], allowMultiple = true) {
+  const selected = [...new Set(selectedIds)];
+  if (!allowMultiple) {
+    return selected.length === 1 && question.answers.some((answer) => answer.id === selected[0] && answer.isCorrect);
+  }
   const expected = question.answers.filter((answer) => answer.isCorrect).map((answer) => answer.id).sort();
-  const selected = [...new Set(selectedIds)].sort();
-  return expected.length === selected.length && expected.every((id, index) => id === selected[index]);
+  const sortedSelected = selected.sort();
+  return expected.length === sortedSelected.length && expected.every((id, index) => id === sortedSelected[index]);
+}
+
+export function canScoreGroupSortBoard(alreadyChecked: boolean, correct: boolean) {
+  return correct && !alreadyChecked;
 }
 
 export function matchingPairs(content: ActivityContent, shuffle: boolean, seed: string) {

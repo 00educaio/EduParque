@@ -12,6 +12,7 @@ type PairBlock = Extract<EditableContentBlock, { type: "pair" }>;
 type ListBlock = Extract<EditableContentBlock, { type: "item-list" }>;
 type CategoryBlock = Extract<EditableContentBlock, { type: "categorized-item" }>;
 type SequenceBlock = Extract<EditableContentBlock, { type: "sequence" }>;
+type LibraryAsset = { id: string; kind: "image" | "audio"; filename: string; byteSize: number };
 
 const blockInfo = {
   "prompt-answer": { label: "Perguntas e respostas", description: "Quiz e Grade de equipes" },
@@ -52,9 +53,13 @@ function MediaAttachment({ value, imageOnly = false, onChange }: { value?: Media
   const id = useId(); const [uploading, setUploading] = useState(false); const [error, setError] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
   const [externalKind, setExternalKind] = useState<"image" | "audio">("image");
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryAssets, setLibraryAssets] = useState<LibraryAsset[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
   async function upload(file?: File) {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { setError("O arquivo pode ter no máximo 5 MiB."); return; }
+    const maximum = file.type.startsWith("audio/") ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maximum) { setError(file.type.startsWith("audio/") ? "O áudio pode ter no máximo 25 MiB." : "A imagem pode ter no máximo 10 MiB."); return; }
     if (imageOnly && !["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Selecione uma imagem PNG, JPG ou WebP."); return; }
     setUploading(true); setError("");
     try {
@@ -95,11 +100,45 @@ function MediaAttachment({ value, imageOnly = false, onChange }: { value?: Media
     try { filename = decodeURIComponent(filename); } catch { /* Mantem o nome codificado se a URL for malformada. */ }
     onChange({ source: "external", externalUrl: parsed.data, kind: imageOnly ? "image" : externalKind, filename: filename.slice(0, 255) });
   }
+  async function toggleLibrary() {
+    const nextOpen = !libraryOpen;
+    setLibraryOpen(nextOpen);
+    if (!nextOpen || libraryAssets.length) return;
+    setLibraryLoading(true); setError("");
+    try {
+      const response = await fetch("/api/media", { cache: "no-store" });
+      if (!response.ok) throw new Error("Não foi possível abrir a biblioteca.");
+      setLibraryAssets(await response.json() as LibraryAsset[]);
+    } catch (libraryError) {
+      setError(libraryError instanceof Error ? libraryError.message : "Não foi possível abrir a biblioteca.");
+    } finally {
+      setLibraryLoading(false);
+    }
+  }
+  async function deleteLibraryAsset(asset: LibraryAsset) {
+    if (!window.confirm(`Excluir definitivamente "${asset.filename}"?`)) return;
+    const response = await fetch(`/api/media/${asset.id}`, { method: "DELETE" });
+    if (response.ok) { setLibraryAssets((items) => items.filter((item) => item.id !== asset.id)); return; }
+    const result = await response.json().catch(() => ({})) as { error?: string };
+    setError(result.error ?? "Não foi possível excluir a mídia.");
+  }
   if (value) {
     const source = mediaReferenceUrl(value);
     return <div className="media-attachment">{value.kind === "image" ? <div className="media-attachment__image"><Image src={source} alt={value.filename} fill sizes="160px" unoptimized /></div> : <audio controls src={source}>Seu navegador não suporta áudio.</audio>}<span>{value.filename}{value.source === "external" ? " (URL externa)" : ""}</span><button type="button" onClick={() => onChange(undefined)}>Remover mídia</button></div>;
   }
-  return <div className="media-buttons"><label htmlFor={`${id}-image`}>{uploading ? "Enviando…" : "+ Imagem"}<input id={`${id}-image`} hidden type="file" accept={imageOnly ? "image/jpeg,image/png,image/webp" : "image/jpeg,image/png,image/webp,image/gif"} disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} /></label>{!imageOnly && <label htmlFor={`${id}-audio`}>{uploading ? "Enviando…" : "+ Áudio"}<input id={`${id}-audio`} hidden type="file" accept="audio/mpeg,audio/ogg,audio/wav,audio/mp4,audio/flac" disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} /></label>}<div className="external-media-form"><input type="url" inputMode="url" placeholder="https://…" aria-label="URL HTTPS externa da mídia" value={externalUrl} onChange={(event) => setExternalUrl(event.target.value)} />{!imageOnly && <select aria-label="Tipo da mídia externa" value={externalKind} onChange={(event) => setExternalKind(event.target.value as "image" | "audio")}><option value="image">Imagem</option><option value="audio">Áudio</option></select>}<button type="button" disabled={!externalUrl.trim()} onClick={addExternal}>Usar URL</button></div>{error && <span className="field-error">{error}</span>}</div>;
+  const availableAssets = libraryAssets.filter((asset) => !imageOnly || asset.kind === "image");
+  return <div className="media-buttons">
+    <label htmlFor={`${id}-image`}>{uploading ? "Enviando…" : "+ Imagem"}<input id={`${id}-image`} hidden type="file" accept={imageOnly ? "image/jpeg,image/png,image/webp" : "image/jpeg,image/png,image/webp,image/gif"} disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} /></label>
+    {!imageOnly && <label htmlFor={`${id}-audio`}>{uploading ? "Enviando…" : "+ Áudio"}<input id={`${id}-audio`} hidden type="file" accept="audio/mpeg,audio/ogg,audio/wav,audio/mp4,audio/flac" disabled={uploading} onChange={(event) => void upload(event.target.files?.[0])} /></label>}
+    <button type="button" onClick={() => void toggleLibrary()}>{libraryOpen ? "Fechar biblioteca" : "Usar da biblioteca"}</button>
+    {libraryOpen && <div className="media-library">
+      {libraryLoading && <span>Carregando…</span>}
+      {!libraryLoading && !availableAssets.length && <span>Nenhuma mídia salva.</span>}
+      {availableAssets.map((asset) => <div key={asset.id} className="media-library__item"><button type="button" onClick={() => onChange({ source: "stored", assetId: asset.id, kind: asset.kind, filename: asset.filename })}>{asset.filename} ({Math.ceil(asset.byteSize / 1024)} KiB)</button><button type="button" className="danger-link" aria-label={`Excluir ${asset.filename}`} onClick={() => void deleteLibraryAsset(asset)}>Excluir</button></div>)}
+    </div>}
+    <div className="external-media-form"><input type="url" inputMode="url" placeholder="https://…" aria-label="URL HTTPS externa da mídia" value={externalUrl} onChange={(event) => setExternalUrl(event.target.value)} />{!imageOnly && <select aria-label="Tipo da mídia externa" value={externalKind} onChange={(event) => setExternalKind(event.target.value as "image" | "audio")}><option value="image">Imagem</option><option value="audio">Áudio</option></select>}<button type="button" disabled={!externalUrl.trim()} onClick={addExternal}>Usar URL</button></div>
+    {error && <span className="field-error">{error}</span>}
+  </div>;
 }
 
 function PasteImport({ hint, onImport }: { hint: string; onImport: (lines: string[]) => void }) {

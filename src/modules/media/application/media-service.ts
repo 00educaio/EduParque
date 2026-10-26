@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/shared/infrastructure/database/client";
 import { activities, activityRevisions, mediaAssets } from "@/shared/infrastructure/database/schema";
 import { activityRevisionSnapshotSchema } from "@/modules/activities/domain/activity-schemas";
@@ -25,6 +25,11 @@ interface BeginMediaUploadInput {
 export class DirectUploadUnavailableError extends Error {
   readonly status = 501;
   constructor() { super("Uploads diretos exigem um provider S3 compativel."); this.name = "DirectUploadUnavailableError"; }
+}
+
+export class MediaInUseError extends Error {
+  readonly status = 409;
+  constructor() { super("Esta midia esta em uso por uma atividade e nao pode ser excluida."); this.name = "MediaInUseError"; }
 }
 
 function safeFilename(filename: string) {
@@ -129,11 +134,54 @@ export async function cleanupExpiredPendingMedia(now = new Date()) {
   const storage = getStorageProvider();
   let deleted = 0;
   for (const asset of expired) {
-    await storage.delete(asset.storageKey);
-    const removed = await db.delete(mediaAssets).where(and(eq(mediaAssets.id, asset.id), eq(mediaAssets.uploadStatus, "pending"), lt(mediaAssets.uploadExpiresAt, now))).returning({ id: mediaAssets.id });
-    deleted += removed.length;
+    try {
+      await storage.delete(asset.storageKey);
+      const removed = await db.delete(mediaAssets).where(and(eq(mediaAssets.id, asset.id), eq(mediaAssets.uploadStatus, "pending"), lt(mediaAssets.uploadExpiresAt, now))).returning({ id: mediaAssets.id });
+      deleted += removed.length;
+    } catch (error) {
+      console.error(`Falha ao limpar upload pendente ${asset.id}.`, error);
+    }
   }
   return deleted;
+}
+
+export async function listOwnedMedia(ownerId: string) {
+  return db.select({
+    id: mediaAssets.id,
+    kind: mediaAssets.kind,
+    filename: mediaAssets.filename,
+    mimeType: mediaAssets.mimeType,
+    byteSize: mediaAssets.byteSize,
+    createdAt: mediaAssets.createdAt,
+  }).from(mediaAssets).where(and(eq(mediaAssets.ownerId, ownerId), eq(mediaAssets.uploadStatus, "ready"))).orderBy(desc(mediaAssets.createdAt)).limit(100);
+}
+
+function valueReferencesAsset(value: unknown, assetId: string): boolean {
+  if (Array.isArray(value)) return value.some((item) => valueReferencesAsset(item, assetId));
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  if (record.source === "stored" && record.assetId === assetId) return true;
+  return Object.values(record).some((item) => valueReferencesAsset(item, assetId));
+}
+
+export async function deleteOwnedMedia(assetId: string, ownerId: string) {
+  const [asset] = await db.select().from(mediaAssets).where(and(eq(mediaAssets.id, assetId), eq(mediaAssets.ownerId, ownerId), eq(mediaAssets.uploadStatus, "ready"))).limit(1);
+  if (!asset) throw new ForbiddenError("Midia nao encontrada ou sem acesso.");
+
+  const [draftCandidates, revisionCandidates] = await Promise.all([
+    db.select({ value: activities.draftContent }).from(activities).where(sql`${activities.draftContent}::text like ${`%${assetId}%`}`),
+    db.select({ value: activityRevisions.snapshot }).from(activityRevisions).where(sql`${activityRevisions.snapshot}::text like ${`%${assetId}%`}`),
+  ]);
+  if ([...draftCandidates, ...revisionCandidates].some((candidate) => valueReferencesAsset(candidate.value, assetId))) throw new MediaInUseError();
+
+  const removed = await db.delete(mediaAssets).where(and(eq(mediaAssets.id, assetId), eq(mediaAssets.ownerId, ownerId), eq(mediaAssets.uploadStatus, "ready"))).returning();
+  if (!removed.length) throw new ForbiddenError("Midia nao encontrada ou sem acesso.");
+  try {
+    await getStorageProvider().delete(asset.storageKey);
+  } catch (error) {
+    await db.insert(mediaAssets).values(asset).onConflictDoNothing();
+    throw error;
+  }
 }
 
 function snapshotReferencesAsset(snapshot: unknown, assetId: string) {

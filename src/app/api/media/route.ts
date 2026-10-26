@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser, UnauthorizedError } from "@/modules/auth/application/authorization";
-import { beginMediaUpload, DirectUploadUnavailableError, uploadMedia } from "@/modules/media/application/media-service";
+import { beginMediaUpload, DirectUploadUnavailableError, listOwnedMedia, uploadMedia } from "@/modules/media/application/media-service";
 import { InvalidMediaError, MAX_MEDIA_BYTES } from "@/modules/media/domain/media-validation";
 import { getEnv } from "@/shared/infrastructure/config/env";
 
@@ -10,6 +10,17 @@ const beginUploadSchema = z.object({
   mimeType: z.string().trim().min(1).max(100),
   byteSize: z.number().int().positive(),
 });
+
+export async function GET() {
+  try {
+    const user = await requireUser();
+    return NextResponse.json(await listOwnedMedia(user.id), { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: error.status });
+    console.error(error);
+    return NextResponse.json({ error: "Nao foi possivel listar a biblioteca de midia." }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -32,11 +43,11 @@ export async function POST(request: Request) {
     }
     if (getEnv().STORAGE_DRIVER !== "local") return NextResponse.json({ error: "Em S3, use o fluxo de upload direto pre-assinado." }, { status: 415 });
     const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (contentLength > MAX_MEDIA_BYTES + 64 * 1024) return NextResponse.json({ error: "O upload excede o limite de 5 MiB." }, { status: 413 });
+    if (contentLength > MAX_MEDIA_BYTES + 64 * 1024) return NextResponse.json({ error: "O upload excede o limite maximo de 25 MiB." }, { status: 413 });
     const formData = await request.formData();
     const file = formData.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "Envie um arquivo no campo 'file'." }, { status: 400 });
-    if (file.size > MAX_MEDIA_BYTES) return NextResponse.json({ error: "O upload excede o limite de 5 MiB." }, { status: 413 });
+    if (file.size > MAX_MEDIA_BYTES) return NextResponse.json({ error: "O upload excede o limite maximo de 25 MiB." }, { status: 413 });
 
     const asset = await uploadMedia({
       ownerId: user.id,

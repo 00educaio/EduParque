@@ -114,6 +114,14 @@ describe("sessionReducer", () => {
     expect(() => reduceSession(advanced, command, start)).toThrow("A tentativa já foi encerrada por outra ação.");
   });
 
+  it("rejeita comandos gerais duplicados pela mesma sequencia", () => {
+    const state = reduceSession(initial(), { type: "startSession", expectedSequence: 0 }, start).state;
+    const command = { type: "awardPoints" as const, teamId: state.teams[0]!.id, expectedSequence: state.sequence };
+    const scored = reduceSession(state, command, start).state;
+    expect(scored.teams[0]!.score).toBe(100);
+    expect(() => reduceSession(scored, command, start)).toThrow("A tentativa já foi encerrada por outra ação.");
+  });
+
   it("restaura timer-bomba expirado sem depender de ticks persistidos", () => {
     const state = reduceSession(initial({ timer: { mode: "game", variant: "bomb", durationSeconds: 5, soundEnabled: false } }), { type: "startSession" }, start).state;
     const restored = restoreSessionState(state, new Date(start.getTime() + 5_500));

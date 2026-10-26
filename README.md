@@ -33,6 +33,8 @@ O cadastro é feito somente por convite individual, vinculado ao e-mail, válido
 
 `STORAGE_DRIVER=local` grava sob `LOCAL_STORAGE_PATH`. Em produção, prefira `s3` e informe as variáveis `S3_*`. Uploads exigem autenticação e ownership, conferem o MIME declarado contra os bytes e aceitam JPEG/PNG/WebP/GIF até 10 MB ou MP3/Ogg/WAV/M4A/FLAC até 25 MB.
 
+Na Vercel, a inicialização falha de propósito se `AUTH_SECRET`, `CRON_SECRET`, `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, `AUTH_TRUST_HOST=true` ou o storage S3 estiverem incompletos. O cron diário também remove uploads incompletos, imagens temporárias abandonadas, sessões finalizadas e dados auxiliares de autenticação conforme `SESSION_RETENTION_DAYS` e `LOGIN_ATTEMPT_RETENTION_DAYS`.
+
 Visitantes anônimos podem abrir e controlar uma partida pública ou não listada. O controle é protegido por um token aleatório em cookie HttpOnly, vinculado apenas àquela sessão; URLs compartilhadas não concedem controle. Activities privadas continuam restritas ao dono e a administradores.
 
 ## Qualidade

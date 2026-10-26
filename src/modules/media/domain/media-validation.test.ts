@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InvalidMediaError, MAX_MEDIA_BYTES, validateMedia, validateMediaDeclaration, validateMediaSignature } from "./media-validation";
+import { InvalidMediaError, MAX_AUDIO_BYTES, MAX_IMAGE_BYTES, validateMedia, validateMediaDeclaration, validateMediaSignature } from "./media-validation";
 
 const onePixelPng = Uint8Array.from(
   Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),
@@ -18,9 +18,11 @@ describe("validateMedia", () => {
     await expect(validateMedia(new TextEncoder().encode("nao e midia"), "image/png")).rejects.toBeInstanceOf(InvalidMediaError);
   });
 
-  it("padroniza o limite de uploads em 5 MiB", () => {
-    expect(validateMediaDeclaration(MAX_MEDIA_BYTES, "image/png")).toEqual({ kind: "image", mimeType: "image/png" });
-    expect(() => validateMediaDeclaration(MAX_MEDIA_BYTES + 1, "image/png")).toThrow(InvalidMediaError);
+  it("aplica limites separados para imagem e audio", () => {
+    expect(validateMediaDeclaration(MAX_IMAGE_BYTES, "image/png")).toEqual({ kind: "image", mimeType: "image/png" });
+    expect(validateMediaDeclaration(MAX_AUDIO_BYTES, "audio/mpeg")).toEqual({ kind: "audio", mimeType: "audio/mpeg" });
+    expect(() => validateMediaDeclaration(MAX_IMAGE_BYTES + 1, "image/png")).toThrow(InvalidMediaError);
+    expect(() => validateMediaDeclaration(MAX_AUDIO_BYTES + 1, "audio/mpeg")).toThrow(InvalidMediaError);
   });
 
   it("valida a assinatura usando apenas o prefixo e o tamanho confirmado", async () => {
